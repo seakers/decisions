@@ -1,0 +1,19 @@
+version: '3.7'
+services:
+  add_neo4j:
+    image: neo4j:latest
+    container_name: add_neo4j
+    ports:
+      - "7687:7687"
+      - "7474:7474"
+    volumes:
+      - ./neo4j/data:/data
+      - ./neo4j/plugins:/plugins
+    environment:
+      - NEO4J_AUTH=neo4j/test
+      - NEO4J_dbms_security_procedures_unrestricted=gds.*
+      - NEO4J_dbms_security_procedures_whitelist=gds.*
+  add_engine:
+    build: .
+    volumes:
+      - . /app

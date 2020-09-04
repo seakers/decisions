@@ -1,0 +1,20 @@
+{
+  "id": 0,
+  "elements": [
+    {
+      "id": 0,
+      "type": "item",
+      "active": true
+    },
+    {
+      "id": 1,
+      "type": "item",
+      "active": true
+    },
+    {
+      "id": 2,
+      "type": "item",
+      "active": true
+    }
+  ]
+}
