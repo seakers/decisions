@@ -34,6 +34,7 @@ public class Structure {
         element.addProperty("type", "item");
         element.addProperty("name", element_name);
 
+        add_to.add(element);
     }
 
     /*
@@ -49,6 +50,8 @@ public class Structure {
 
         JsonArray sub_elements = new JsonArray();
         element.add("elements", sub_elements);
+
+        add_to.add(element);
     }
 
     /*
@@ -62,6 +65,8 @@ public class Structure {
         element.addProperty("type", "list");
         element.addProperty("name", element_name);
         element.add("elements", sub_elements);
+
+        add_to.add(element);
     }
 
     /*

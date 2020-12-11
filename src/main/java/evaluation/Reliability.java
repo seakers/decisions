@@ -143,7 +143,7 @@ public class Reliability {
             }
         }
 
-        System.out.println("--> DESIGN HASH MAP: " + design_map);
+        // System.out.println("--> DESIGN HASH MAP: " + design_map);
 
         return design_map;
     }
@@ -191,11 +191,12 @@ public class Reliability {
 
                 for(String connection_failure: connection_failures){
 
+                    // If any of the connections fail prob_i = 0
                     double       prob_i                    = this.connection_failure_probability(sensor_computer_assignation, connection_failure);
                     SimpleMatrix connection_failure_matrix = this.get_failure_matrix(connection_failure, sensors.size(), computers.size());
                     // nxm matrix
 
-                    int system_status = this.determine_system_failure(sensor_failure_matrix, computer_failure_matrix, connection_failure_matrix);
+                    double system_status = (double) this.determine_system_failure(sensor_failure_matrix, computer_failure_matrix, connection_failure_matrix);
 
                     result_reliability += (prob_s*prob_c*prob_i*system_status);
 
@@ -319,11 +320,15 @@ public class Reliability {
             String orig_bit = (connection_bit_string.charAt(x) + "");
             String new_bit  = (failure_bit_string.charAt(x) + "");
 
-            // Check if this is an established connection
+            // Check if there was an original connection
             if(orig_bit.equals("1")){
+
+                // Connection passed
                 if(new_bit.equals("1")){
                     prob *= (this.connection_reliability);
                 }
+
+                // Connection failed - returned prob is automatically 0
                 else{
                     prob *= (1 - this.connection_reliability);
                 }
@@ -355,7 +360,7 @@ public class Reliability {
 
     public double transform_reliability(double reliability){
 
-        double result = -(Math.log(1.0-reliability));
+        double result = -(Math.log10(1.0-reliability));
         return result;
     }
 

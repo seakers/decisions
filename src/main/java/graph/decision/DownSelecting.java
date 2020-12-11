@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import graph.Decision;
 import graph.neo4j.DatabaseClient;
+import graph.structure.Structure;
 import org.neo4j.driver.Record;
 
 import java.lang.reflect.Array;
@@ -383,8 +384,11 @@ public class DownSelecting extends Decision {
             this.generateAllBinaryStrings(num_active, arr, 0, bit_strings);
             System.out.println(bit_strings);
 
+            // 2.1 Prune invalid chromosomes
+            ArrayList<String> pruned_chromosomes = this.prune_invalid_chromosomes(bit_strings);
+
             // 3. Build enumeration_store with this parent enumeration and all possible bit strings
-            this.buildEnumerationStore(elements, bit_strings);
+            this.buildEnumerationStore(elements, pruned_chromosomes);
         }
     }
 
@@ -394,6 +398,21 @@ public class DownSelecting extends Decision {
 
 
     }
+
+    /*
+        At least one element has to be picked in the down selecting decision
+     */
+    private ArrayList<String> prune_invalid_chromosomes(ArrayList<String> designs){
+        ArrayList<String> pruned_chromosomes = new ArrayList<>();
+        for(String design: designs){
+            if(design.indexOf('1') != -1){
+                pruned_chromosomes.add(design);
+            }
+        }
+        return pruned_chromosomes;
+    }
+
+
 
     // Add to this.enumeration_store object
     private void buildEnumerationStore(JsonArray elements, ArrayList<String> bit_strings){
@@ -413,7 +432,9 @@ public class DownSelecting extends Decision {
                     new_elements.get(active_indicies.get(x)).getAsJsonObject().addProperty("active", true);
                 }
             }
-            this.enumeration_store.put(enum_counter, new_elements);
+
+            // this.enumeration_store.put(enum_counter, new_elements);
+            this.enumeration_store.put(enum_counter, Structure.pruneInactiveElements(new_elements));
             enum_counter++;
         }
     }

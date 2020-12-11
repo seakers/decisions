@@ -1,13 +1,28 @@
 import os
+from statistics import mean, pstdev, stdev
 
 from three_dimensions import plot_pareto_front, plot_nfe_overlay_json, plot_pareto_overlap, scatter_3d_figure, plot_three_nfe, plot_nfe_overlay, plot_3_nfe_overlay, plot_3_separate_nfe_overlay
 from hypervolume import check_domination
 
 from parsing import parse_design_file
 
+
+from reliability import plot_reliability
+
+nfe_500_no_constraint = [.68646, .68783, .68804, .70383, .6834, .71377, .70979, .69192, .69413, .65763, .69219, .702369, .68371, .66634, .67413, .68858, .67366, .67131, .69958, .70229, .68019, .68424, .67817, .68827, .68739, .6967, .69228, .69257, .68347, .684414]
+
+nfe_500_constraint = [.70508, .70333, .70818, .6562, .7031, .69217, .69426, .69618, .70107, .69039, .69326, .7075, .68693, .683944, .707099, .70041, .69387, .698725, .69517, .68481, .71109, .69874, .69424, .67924, .69817, .69855, .70738, .68317, .69841, .70926]
+
+
 def run():
 
+    print('--> MEAN HV NO CONSTRAINT', mean(nfe_500_no_constraint))
+    print('--> HV SD NO CONSTRAINT', stdev(nfe_500_no_constraint))
 
+
+
+    print('--> MEAN HV WITH CONSTRAINT', mean(nfe_500_constraint))
+    print('--> HV SD WITH CONSTRAINT', stdev(nfe_500_constraint))
 
 
 
@@ -67,6 +82,11 @@ def run():
 
 
 
+    reliability_results = '/home/gabe/repos/seakers/decisions/reliability_results/designs.json'
+
+    # plot_reliability(reliability_results)
+
+
     # parse_design_file(add_file_500_1_design)
 
 
@@ -80,7 +100,7 @@ def run():
     #
     # check_domination(add_decadal2007_300_designs, add_decadal2007_500_designs, "SELECTING", "COMBINED")
 
-    plot_nfe_overlay_json(add_decadal2007_2000_designs, add_decadal2007_2000_designs_1, 'ADD - 2000 NFE - POP 0', 'ADD - 2000 NFE - POP 1', 'Decadal Survey 2007')
+    # plot_nfe_overlay_json(add_decadal2007_2000_designs, add_decadal2007_2000_designs_1, 'ADD - 2000 NFE - POP 0', 'ADD - 2000 NFE - POP 1', 'Decadal Survey 2007')
 
 
 

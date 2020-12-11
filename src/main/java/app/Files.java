@@ -13,6 +13,8 @@ import org.moeaframework.core.Solution;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 
 public class Files {
@@ -39,6 +41,7 @@ public class Files {
 
     // DIRECTORIES: GN&C
     public static String gncDir = "/app/gnc_formulation/two_branch";
+    public static String relDir = "/app/reliability_results";
 
 
     // SET DIRECTORY
@@ -213,6 +216,36 @@ public class Files {
 
 
 
+
+    public static void writeReliabilityResults(HashMap<String, ArrayList<Double>> results){
+        String file_path = Files.relDir + "/designs.json";
+
+        JsonArray designs   = new JsonArray();
+        try{
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            FileWriter outputfile = new FileWriter(file_path);
+
+            for(String design_str: results.keySet()){
+                ArrayList<Double> design_scores = results.get(design_str);
+                double design_reliability = design_scores.get(0);
+                double design_mass = design_scores.get(1);
+                JsonObject design = new JsonObject();
+                design.addProperty("reliability", design_reliability);
+                design.addProperty("mass", design_mass);
+                design.addProperty("design", design_str);
+                designs.add(design);
+            }
+
+            gson.toJson(designs, outputfile);
+            outputfile.flush();
+            outputfile.close();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+            System.out.println("WRITING EXCEPTION");
+            App.sleep(100);
+        }
+    }
 
 
 

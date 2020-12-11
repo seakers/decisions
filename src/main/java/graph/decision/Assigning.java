@@ -185,6 +185,9 @@ public class Assigning extends Decision {
         bit_string_representation.addProperty("bitstring", Decision.bitArrayToString(bit_string));
         dependency.add(bit_string_representation);
 
+        // REPAIR
+        bit_string = this.enforce_min_assignation(bit_string, assign_to_active_indicies.size(), assign_from_active_indicies.size());
+
         // DEBUG
         this.writeChromosome(bit_string, "random/2-rand-chromosome.json");
 
@@ -269,6 +272,68 @@ public class Assigning extends Decision {
     }
 
 
+
+    /*
+        The purpose of this operator is to enforce the following two constraints
+            1. Each (assign to) element will have at least one (assign from) element assigned to it
+            2. Each (assign from) element will be assigned to at least one (assign to) element
+     */
+    public ArrayList<Integer> enforce_min_assignation(ArrayList<Integer> chromosome, int num_assign_to, int num_assign_from){
+
+        // 1. Enforce first constraint
+        int idx = 0;
+        for(int x = 0; x < num_assign_to; x++){
+
+            boolean assign_to_sat = false;
+            ArrayList<Integer> assign_to_indices = new ArrayList<>();
+            for(int y = 0; y < num_assign_from; y++){
+                Integer bit = chromosome.get(idx);
+                if(bit.equals(1)){
+                    // This assign_to element has at least one assign_from element assigned to it
+                    assign_to_sat = true;
+                }
+                assign_to_indices.add(idx);
+                idx++;
+            }
+            // Assign 1 to a random bit
+            if(!assign_to_sat){
+                int rand_idx = assign_to_indices.get(this.rand.nextInt(assign_to_indices.size()));
+                chromosome.set(rand_idx, 1);
+            }
+        }
+
+        // 2. Enforce second constraint
+        for(int x = 0; x < num_assign_from; x++){
+
+            // For each assign_from element, find all its corresponding bit positions in the chromosome
+            ArrayList<Integer> bit_positions = new ArrayList<>();
+            for(int y = 0; y < num_assign_to; y++){
+                int pos = x + (num_assign_from * y);
+                bit_positions.add(pos);
+            }
+
+            // Check if each assign_from element is assigned to at least one assign_to element
+            boolean assign_from_sat = false;
+            for(Integer pos: bit_positions){
+                Integer bit = chromosome.get(pos);
+                if(bit.equals(1)){
+                    assign_from_sat = true;
+                }
+            }
+
+            // Assign 1 to a random bit pos if the constraint isn't satisfied
+            if(!assign_from_sat){
+                int rand_idx = bit_positions.get(this.rand.nextInt(bit_positions.size()));
+                chromosome.set(rand_idx, 1);
+            }
+        }
+
+        return chromosome;
+    }
+
+
+
+
 //      _____
 //     / ____|
 //    | |     _ __ ___  ___ ___  _____   _____ _ __
@@ -335,7 +400,8 @@ public class Assigning extends Decision {
         child_chromosome = this.mutationOperator(child_chromosome);
 
         // ----- REPAIR OPERATOR -----
-        child_chromosome = this.repair_null_chromosome(child_chromosome);
+        // child_chromosome = this.repair_null_chromosome(child_chromosome);
+        child_chromosome = this.enforce_min_assignation(child_chromosome, child_to.size(), child_from.size());
 
 
         String child_bitstring  = Decision.bitArrayToString(child_chromosome);
@@ -516,11 +582,143 @@ public class Assigning extends Decision {
 //    | |____| | | | |_| | | | | | |  __/ | | (_| | |_| | (_) | | | |
 //    |______|_| |_|\__,_|_| |_| |_|\___|_|  \__,_|\__|_|\___/|_| |_|
 
+    /*
+        ----- NOTES -----
+        - Not currently functional with only one dependency
+
+
+     */
+
+
+    /*
+        Return: HashMap<String, ArrayList<HashMap<Integer, JsonArray>>>
+
+        HashMap<
+            String,
+            ArrayList<
+                HashMap<
+                    Integer,
+                    JsonArray
+                >
+            >
+        >
+
+        1. HashMap<String, ...>              - splits the TO and FROM dependencies
+        2. ArrayList< ...parent... >         - array list of TO or FROM parents
+        3. HashMap<Integer, ...decision... > - enumerated parent decisions
+        4. JsonArray                         - one decision made by a parent
+
+
+     */
+    private HashMap<String, ArrayList<HashMap<Integer, JsonArray>>> getParentEnumerations(){
+        ArrayList<HashMap<Integer, JsonArray>> parent_enumerations_to = new ArrayList<>();
+        ArrayList<HashMap<Integer, JsonArray>> parent_enumerations_from = new ArrayList<>();
+        HashMap<String, ArrayList<HashMap<Integer, JsonArray>>> parent_enumerations = new HashMap<>();
+        parent_enumerations.put("TO", parent_enumerations_to);
+        parent_enumerations.put("FROM", parent_enumerations_from);
+
+        for(Decision parent: this.parents){
+            String parent_type = this.getParentRelationshipAttribute(parent, "type");
+
+            if(parent_type.equals("FROM")){
+                parent_enumerations_from.add(parent.getEnumerations(this.node_name, this.node_type));
+            }
+            else if(parent_type.equals("TO")){
+                parent_enumerations_to.add(parent.getEnumerations(this.node_name, this.node_type));
+            }
+        }
+
+        return parent_enumerations;
+    }
+
+
 
     @Override
     public void enumerateDesignSpace(){
+        System.out.println("--> ENUMERATING ASSIGNING DECISION");
+
+
+        // 1. Get parent enumeration info
+        HashMap<String, ArrayList<HashMap<Integer, JsonArray>>> parent_enumerations = this.getParentEnumerations();
+
+
+        ArrayList<HashMap<Integer, JsonArray>> parent_to_enum_list   = parent_enumerations.get("TO");
+        ArrayList<HashMap<Integer, JsonArray>> parent_from_enum_list = parent_enumerations.get("FROM");
+
+         /*
+                For the purposes of the GN&C formulation, this enumeration functionality will written assuming
+            one TO and one FROM parent dependency where each of the states of the objects are TRUE
+         */
+        HashMap<Integer, JsonArray> parent_to_enum   = parent_to_enum_list.get(0);
+        HashMap<Integer, JsonArray> parent_from_enum = parent_from_enum_list.get(0);
+
+//        System.out.println("----> TO ENUMERATIONS: " + parent_to_enum.keySet().size());
+//        System.out.println("--> FROM ENUMERATIONS: " + parent_from_enum.keySet().size());
+
+        // For each TO decision
+        int to_counter = 0;
+        for(Integer parent_to_key: parent_to_enum.keySet()){
+            System.out.println("--> TO COUNTER: " + to_counter + " - " + this.enumeration_store.keySet().size());
+            to_counter++;
+
+            // TO decision
+            JsonArray parent_to_decision = parent_to_enum.get(parent_to_key);
+
+
+            // For each FROM decision
+            for(Integer parent_from_key: parent_from_enum.keySet()){
+
+                // FROM decision
+                JsonArray parent_from_decision = parent_from_enum.get(parent_from_key);
+
+                // For this specific combination of TO and FROM decision, enumerate all the possible assigning decisions
+                this.enumerate_combination(parent_to_decision, parent_from_decision);
+            }
+        }
 
     }
+
+
+
+    /*
+        This function assumes all the elements of to_decision and from_decision are active
+     */
+    private void enumerate_combination(JsonArray to_decision, JsonArray from_decision){
+
+        int assign_to_size   = to_decision.size();
+        int assign_from_size = from_decision.size();
+        int bit_str_length   = assign_to_size * assign_from_size;
+
+        // Enumerate all possible assignations
+        ArrayList<String> bit_strings = new ArrayList<>();
+        int[] arr = new int[bit_str_length];
+        this.generateAllBinaryStrings(bit_str_length, arr, 0, bit_strings);
+
+        // Prune invalid enumerations
+        ArrayList<String> valid_enumerations = this.prune_invalid_chromosomes(bit_strings);
+
+        int enum_counter = this.enumeration_store.keySet().size();
+        for(String enumeration: valid_enumerations){
+
+            ArrayList<Integer> bit_array = Decision.bitStringToArray(enumeration);
+            JsonArray new_elements = this.applyChromosome(bit_array, to_decision, from_decision);
+
+            this.enumeration_store.put(enum_counter, new_elements);
+            enum_counter++;
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
 
     @Override
     public ArrayList<JsonArray> enumerateDecision(JsonArray elements){
@@ -542,6 +740,39 @@ public class Assigning extends Decision {
 //     \____/ \__|_|_|_|\__|\__, |
 //                           __/ |
 //                          |___/
+
+
+    private ArrayList<String> prune_invalid_chromosomes(ArrayList<String> enumerations){
+        ArrayList<String> pruned_list = new ArrayList<>();
+
+        for(String chromosome: enumerations){
+            if(chromosome.indexOf('1') != -1){
+                pruned_list.add(chromosome);
+            }
+        }
+        return pruned_list;
+    }
+
+    // Generate all binary strings of length n
+    private void generateAllBinaryStrings(int n, int arr[], int i, ArrayList<String> bit_strings) {
+        if (i == n)
+        {
+            String bit_string = "";
+            for (int c = 0; c < n; c++)
+            {
+                bit_string += Integer.toString(arr[c]);
+            }
+            bit_strings.add(bit_string);
+            return;
+        }
+
+        arr[i] = 0;
+        this.generateAllBinaryStrings(n, arr, i + 1, bit_strings);
+
+        arr[i] = 1;
+        this.generateAllBinaryStrings(n, arr, i + 1, bit_strings);
+    }
+
 
     private void writeChildDeps(JsonArray child_to, JsonArray child_from, String f_name){
         String full_file_path = this.debug_dir + f_name;

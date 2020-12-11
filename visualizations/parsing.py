@@ -5,6 +5,20 @@ import pandas as pd
 
 
 
+def parse_reliability_file(reliability_file):
+    with open(reliability_file) as d_file:
+        file_data = json.load(d_file)
+        data = []
+        for design in file_data:
+            reliability_score = design['reliability']
+            mass_score = design['mass']
+            design_str = design['design']
+            data.append([float(reliability_score), float(mass_score), design_str])
+        df = pd.DataFrame(data, columns=['reliability', 'mass', 'STRING'])
+        return df
+
+
+
 def parse_design_file(design_file):
     with open(design_file) as d_file:
         file_data = json.load(d_file)

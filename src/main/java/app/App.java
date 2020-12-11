@@ -6,6 +6,7 @@ package app;
 //import com.opencsv.CSVWriter;
 import com.google.gson.*;
 import com.opencsv.CSVWriter;
+import evaluation.GNC_Evaluator;
 import formulations.Decadal;
 import graph.Graph;
 import graph.neo4j.DatabaseClient;
@@ -55,6 +56,7 @@ public class App {
 
             // ENUMERATION
             boolean enumeration              = false;
+            boolean enumeration_gnc          = false;
             boolean enumeration_selecting    = false;
             boolean enumeration_partitioning = false;
             boolean enumeration_permuting    = false;
@@ -64,8 +66,9 @@ public class App {
             boolean ContinuityMatrix = false;
 
             // EVALUATION TESTING
-            boolean test_eval  = false;
-            boolean test_eval2 = false;
+            boolean test_eval        = false;
+            boolean test_eval2       = false;
+            boolean test_reliability = false;
 
             // DECISION TESTING
             boolean test_down_selecting = false;
@@ -110,6 +113,12 @@ public class App {
             System.out.println("--------> VASSAR QUEUE: " + vassar_queue_url);
             System.out.println("----------------------------------------------------\n");
             // App.sleep(3);
+
+
+            if(test_reliability){
+                Test.reliabilityCalculation();
+                System.exit(0);
+            }
 
 
 //  ____        _ _     _
@@ -186,22 +195,22 @@ public class App {
 // | |____| | | | |_| | | | | | |  __/ | | (_| | |_| | (_) | | | |
 // |______|_| |_|\__,_|_| |_| |_|\___|_|  \__,_|\__|_|\___/|_| |_|
 
-            if (enumeration) {
+            if(enumeration){
                 HashMap<Integer, ArrayList<Double>> scores = App.enumerateAndEvaluate(sqsClient, graph, eval_queue_url, vassar_queue_url);
             }
-
+            if(enumeration_gnc){
+                App.enumerateAndEvaluateGNC(graph, sqsClient, vassar_queue_url);
+            }
             if(enumeration_selecting){
                 JsonArray dependency = Smap.getSelectingEnumerationDependency();
                 ArrayList<JsonArray> designs = graph.enumerateDesignSpace(dependency, "Instrument Selection");
                 App.evaluateNodeEnumeration(designs, sqsClient, eval_queue_url, vassar_queue_url, graph, "SELECTING-DECISION");
             }
-
             if(enumeration_partitioning){
                 JsonArray dependency = Smap.getPartitioningEnumerationDependency();
                 ArrayList<JsonArray> designs = graph.enumerateDesignSpace(dependency, "Instrument Partitioning");
                 App.evaluateNodeEnumeration(designs, sqsClient, eval_queue_url, vassar_queue_url, graph, "PARTITIONING-DECISION");
             }
-
             if(enumeration_permuting){
 
             }
@@ -231,7 +240,7 @@ public class App {
 // | |  | | |__| | |____ / ____ \
 // |_|  |_|\____/|______/_/    \_\
 
-            int max_evals = 2021;
+            int max_evals = 521;
             double mutation_probability = 0.25;
             double crossover_probability = 1;
             int initial_pop_size = 20;
@@ -239,11 +248,11 @@ public class App {
             // - MUTATION ARRAY PROBABILITIES
             ArrayList<Double> mutation_probabilities = new ArrayList<>();
             mutation_probabilities.add(1.0); // ROOT
-            mutation_probabilities.add(0.333); // - SELECTING
-            mutation_probabilities.add(0.666); // - PARTITIONING
-            mutation_probabilities.add(0.666); // - PARTITIONING
-            mutation_probabilities.add(0.666); // - PARTITIONING
-            mutation_probabilities.add(0.333); // - PERMUTING
+            mutation_probabilities.add(0.222); // - DOWN SELECTION
+            mutation_probabilities.add(0.222); // - DOWN SELECTION
+            mutation_probabilities.add(0.222); // - STANDARD FORM
+            mutation_probabilities.add(0.222); // - STANDARD FORM
+            mutation_probabilities.add(0.222); // - ASSIGNING
             mutation_probabilities.add(1.0); // DESIGN
 
             if (moea_full) {
@@ -432,6 +441,58 @@ public class App {
     }
 
 
+
+
+
+
+    public static void enumerateAndEvaluateGNC(Graph graph, SqsClient client, String eval_queue){
+
+        // 1. Enumerate Design Space
+        graph.enumerateDesignSpace();
+
+        // 2. Get all designs
+        ArrayList<String> designs = graph.getEnumeratedDesignStrings();
+
+        // 3. Build GNC_Evaluator
+        GNC_Evaluator gnc_evaluator = new GNC_Evaluator((5/3), 9, 1, 10);
+
+        // 4. Initialize non-dominated population
+        NondominatedPopulation pop = new NondominatedPopulation();
+
+        // 5. Evaluate designs
+        int progress_counter = 0;
+        for(String design: designs){
+
+            // Evaluate
+            ArrayList<Double> results = gnc_evaluator.evaluate(design);
+            double reliability = results.get(0);
+            double mass = results.get(1);
+
+            // Solution
+            InfoSolution arch = new InfoSolution(1, 2, design);
+            arch.setObjective(0, -reliability);
+            arch.setObjective(1, mass);
+
+            BinaryIntegerVariable var = new BinaryIntegerVariable(progress_counter, 0, 1000000);
+            arch.setVariable(0, var);
+            pop.add(arch);
+
+            System.out.println("--> EVALUATION " + progress_counter);
+            progress_counter++;
+        }
+
+        // 6. Initialize problem
+        ADDProblem problem = new ADDProblem(graph, 2, client, eval_queue);
+
+        Analyzer analyzer = new Analyzer()
+                .withProblem(problem)
+                .withIdealPoint(-10.1, -0.1)
+                .withReferencePoint(0, 100)
+                .includeHypervolume();
+
+        analyzer.add("population", pop);
+        analyzer.printAnalysis();
+    }
 
 
 
@@ -691,34 +752,6 @@ public class App {
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     public static void createResultsFiles(){
         String[] header = { "HV_START", "HV_END" };
 
@@ -746,6 +779,10 @@ public class App {
             }
         }
     }
+
+
+
+
 
 
 

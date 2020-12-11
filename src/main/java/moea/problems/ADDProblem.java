@@ -10,6 +10,7 @@ import org.moeaframework.problem.AbstractProblem;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,8 @@ public class ADDProblem extends AbstractProblem {
     private String    target_node;
     private JsonArray target_dependency;
 
+    private GNC_Evaluator gnc_evaluator;
+
 
     public ADDProblem(Graph graph, int numObjectives, SqsClient sqs, String eval_queue_url){
         super(1, numObjectives);
@@ -36,6 +39,7 @@ public class ADDProblem extends AbstractProblem {
         this.eval_queue_url = eval_queue_url;
         this.vassar_queue = System.getenv("VASSAR_QUEUE");
         this.targeted_run = false;
+        this.gnc_evaluator = new GNC_Evaluator((5/3), 9, 1, 10);
     }
 
     public ADDProblem(Graph graph, int numObjectives, SqsClient sqs, String eval_queue_url, String target_node, JsonArray target_dependency){
@@ -48,6 +52,7 @@ public class ADDProblem extends AbstractProblem {
         this.targeted_run = true;
         this.target_node = target_node;
         this.target_dependency = target_dependency;
+        this.gnc_evaluator = new GNC_Evaluator((5/3), 9, 1, 10);
     }
 
 
@@ -76,16 +81,20 @@ public class ADDProblem extends AbstractProblem {
 
     public void evaluateArch_GNC(ADDSolution arch){
 
-        double connection_weight = (5/3);
-        double dissimiliar_component_property = 9;
-        double connection_reliability = 1;
-        double years = 10;
-
-        GNC_Evaluator evaluator = new GNC_Evaluator(connection_weight, dissimiliar_component_property, connection_reliability, years);
+//        double connection_weight = (5/3);
+//        double dissimiliar_component_property = 9;
+//        double connection_reliability = 1;
+//        double years = 10;
+//        GNC_Evaluator evaluator = new GNC_Evaluator(connection_weight, dissimiliar_component_property, connection_reliability, years);
 
         String design = arch.getDesignString();
-        double reliability = evaluator.evaluate_reliability(design);
-        double mass        = evaluator.evaluate_mass(design);
+
+        ArrayList<Double> results = this.gnc_evaluator.evaluate(design);
+
+        double reliability = results.get(0);
+        double mass = results.get(1);
+//        double reliability = evaluator.evaluate_reliability(design);
+//        double mass        = evaluator.evaluate_mass(design);
 
         // Maximize reliability and minimize mass
         arch.setObjective(0, -reliability);

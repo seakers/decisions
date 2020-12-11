@@ -12,6 +12,7 @@ package evaluation;
 
 
 import app.App;
+import app.Files;
 import org.ejml.simple.SimpleMatrix;
 
 
@@ -34,6 +35,9 @@ public class GNC_Evaluator {
     private double years;                         // 10
 
     private Gson gson;
+
+    private HashMap<String, ArrayList<Double>> design_results;
+    private int eval_count;
 
 
     public GNC_Evaluator(double connection_weight, double dissimilar_component_property, double connection_reliability, double years){
@@ -69,7 +73,33 @@ public class GNC_Evaluator {
 //        this.component_reliability.put("a3", 0.00002);
 
 
+        this.design_results = new HashMap<>();
+        this.eval_count = 0;
+    }
 
+
+
+    /*
+        The returned array list will contain two elements
+            1. the evaluated reliability
+            2. the evaluated mass
+     */
+    public ArrayList<Double> evaluate(String design_str){
+        // System.out.println(design_str);
+
+        ArrayList<Double> results = new ArrayList<>();
+
+        results.add(this.evaluate_reliability(design_str));
+        results.add(this.evaluate_mass(design_str));
+
+        this.design_results.put(design_str, results);
+        this.eval_count++;
+
+        if(this.eval_count == 1000){
+            Files.writeReliabilityResults(this.design_results);
+        }
+
+        return results;
     }
 
 
@@ -95,7 +125,7 @@ public class GNC_Evaluator {
             mass += this.dissimilar_component_penalty;
         }
 
-        System.out.println("--> SYSTEM MASS " + mass);
+        // System.out.println("--> SYSTEM MASS " + mass);
         return mass;
     }
 
@@ -140,57 +170,15 @@ public class GNC_Evaluator {
 
     public double evaluate_reliability(String design_str){
 
-//
-//
-//
-//        System.out.println("---> INITIAL RELIABILITY CALC " + calc_reliability);
-//        App.sleep(2);
-//
-//
-//        System.out.println("---> EVALUATING RELIABILITY");
-//        System.out.println(design_str);
-//
-//        JsonArray design = this.parseDesignString(design_str);
-//
-//
-//        ArrayList<String> computer_names = this.extractComputers(design);
-//        ArrayList<Double> computer_reliabilities = new ArrayList<>();
-//        for(String name: computer_names){
-//            if(name.equals("nil")){
-//                computer_reliabilities.add(0.0);
-//            }
-//            else{
-//                computer_reliabilities.add(this.component_reliability.get(name.substring(0, 2)));
-//            }
-//        }
-//
-//        ArrayList<String> sensor_names = this.extractSensors(design);
-//        ArrayList<Double> sensor_reliabilities = new ArrayList<>();
-//        for(String name: sensor_names){
-//            if(name.equals("nil")){
-//                sensor_reliabilities.add(0.0);
-//            }
-//            else{
-//                sensor_reliabilities.add(this.component_reliability.get(name.substring(0, 2)));
-//            }
-//        }
-//
-//        HashMap<String, ArrayList<String>> design_map = this.designToHashMap(design);
-//
-//        ArrayList<ArrayList<Double>> connections = this.extractConnectionMatrix(design_map,  sensor_names, computer_names);
-//
-//        double reliability = this.minimum_cut_sets_fast(sensor_reliabilities, computer_reliabilities, connections);
-//        double n9          = this.transform_reliability(reliability);
-
 
         Reliability rel_evaluator = new Reliability(1, 10);
         double reliability = rel_evaluator.evaluate(design_str);
         double n9 = rel_evaluator.transform_reliability(reliability);
 
 
-        System.out.println("--> SYSTEM RELIABILITY      " + reliability);
-        System.out.println("--> SYSTEM N9s              " + n9);
-        App.sleep(2);
+//        System.out.println("--> SYSTEM RELIABILITY      " + reliability);
+//        System.out.println("--> SYSTEM N9s              " + n9);
+        // App.sleep(2);
 
         return n9;
     }
@@ -258,7 +246,7 @@ public class GNC_Evaluator {
             }
         }
 
-        System.out.println("--> DESIGN HASH MAP: " + design_map);
+        // System.out.println("--> DESIGN HASH MAP: " + design_map);
 
         return design_map;
     }

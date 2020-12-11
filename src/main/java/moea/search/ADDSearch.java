@@ -33,7 +33,7 @@ public class ADDSearch implements Callable<Algorithm> {
 
         this.analyzer = new Analyzer()
                 .withProblem(this.alg.getProblem())
-                .withIdealPoint(-30, -0.1)
+                .withIdealPoint(-10.1, -0.1)
                 .withReferencePoint(0, 100)
                 .includeHypervolume()
                 .includeAdditiveEpsilonIndicator();

@@ -255,21 +255,19 @@ public class Algorithm implements Runnable{
             // ANALYZE
             NondominatedPopulation result = alg.getResult();
 
-            Analyzer analyzer = new Analyzer()
-                    .withProblem(this.addProblem)
-                    .withIdealPoint(-1.1, -0.1, -0.1)
-                    .withReferencePoint(0, 10000, 2000)
-                    .includeHypervolume()
-                    .includeGenerationalDistance()
-                    .includeAdditiveEpsilonIndicator();
-
-            analyzer.add("addMOEA", result);
-            analyzer.printAnalysis();
-
-
-
-            double result_hv = analyzer.getAnalysis().get("addMOEA").get("Hypervolume").getMax();
-            System.out.println(result_hv);
+//            Analyzer analyzer = new Analyzer()
+//                    .withProblem(this.addProblem)
+//                    .withIdealPoint(-1.1, -0.1, -0.1)
+//                    .withReferencePoint(0, 10000, 2000)
+//                    .includeHypervolume()
+//                    .includeGenerationalDistance()
+//                    .includeAdditiveEpsilonIndicator();
+//
+//            analyzer.add("addMOEA", result);
+//            analyzer.printAnalysis();
+//
+//            double result_hv = analyzer.getAnalysis().get("addMOEA").get("Hypervolume").getMax();
+//            System.out.println(result_hv);
 
 
 

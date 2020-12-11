@@ -1,5 +1,6 @@
 package graph.decision;
 
+import app.App;
 import app.Files;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -413,6 +414,211 @@ public class StandardForm extends Decision {
 
         return design_component_products_copy;
     }
+
+
+
+
+//     ______                                      _   _
+//    |  ____|                                    | | (_)
+//    | |__   _ __  _   _ _ __ ___   ___ _ __ __ _| |_ _  ___  _ __
+//    |  __| | '_ \| | | | '_ ` _ \ / _ \ '__/ _` | __| |/ _ \| '_ \
+//    | |____| | | | |_| | | | | | |  __/ | | (_| | |_| | (_) | | | |
+//    |______|_| |_|\__,_|_| |_| |_|\___|_|  \__,_|\__|_|\___/|_| |_|
+
+
+    private ArrayList<HashMap<Integer, JsonArray>> getParentEnumerations(){
+        ArrayList<HashMap<Integer, JsonArray>> parent_enumerations = new ArrayList<>();
+
+        for(Decision parent: this.parents){
+            parent_enumerations.add(parent.getEnumerations(this.node_name, this.node_type));
+        }
+
+        return parent_enumerations;
+    }
+
+    @Override
+    public void enumerateDesignSpace(){
+
+        // 1. Get parent enumerations
+        ArrayList<HashMap<Integer, JsonArray>> parent_enumerations = this.getParentEnumerations();
+
+        // 2. Enumerate based on number of dependencies
+        if(parent_enumerations.size() == 1){
+            this.enumerateSingleDependency(parent_enumerations.get(0));
+        }
+        else if(parent_enumerations.size() > 1){
+            this.enumerateMultiDependency(parent_enumerations);
+        }
+        else{
+            System.out.println("--> Enumeration has invalid amount of parents: " + this.node_name);
+            App.sleep(10);
+        }
+
+        System.out.println("---> FINISHED ENUMERATING STANDARD FORM DECISION");
+    }
+
+    /*
+        Each JsonArray contains multiple JsonObjects where each JsonObject is a list element
+        contains all the sensors to be decided upon.
+     */
+    private void enumerateSingleDependency(HashMap<Integer, JsonArray> parent_enumerations){
+        System.out.println("--> ENUMERATING SF DECISION - SINGLE DEPENDENCY");
+
+        // Each JsonArray represents a possible decision taken by the parent
+        for(Integer key: parent_enumerations.keySet()){
+
+            // Parent decision
+            JsonArray elements = parent_enumerations.get(key);
+
+            /*
+                    For this specific parent decision, we will enumerate all the possible standard form
+                decisions that can be made on this parent decision.
+             */
+
+            // 1. Determine the number of decision components
+            int num_components = elements.size();
+
+            // 2. Determine the cardinality of each decision component
+            // - this essentially encodes the structure of this SF decision, this structure will be used to enumerate all the possible SF decisions
+            ArrayList<Integer> component_cardinalities = new ArrayList<>();
+            for(int x = 0; x < num_components; x++){
+                JsonObject list_element = elements.get(x).getAsJsonObject();
+                component_cardinalities.add(list_element.getAsJsonArray("elements").size());
+            }
+
+            // 3. Generate all possible enumerations
+            ArrayList<ArrayList<String>> enumerations = this.generateAllBinarySF_Strings(component_cardinalities);
+
+            // 4. Build enumeration store
+            this.buildEnumerationStore(elements, enumerations);
+
+            System.out.println("--> STANDARD FORM ENUMERATIONS: " + this.enumeration_store.size());
+        }
+    }
+
+    private void enumerateMultiDependency(ArrayList<HashMap<Integer, JsonArray>> parent_enumerations){
+
+    }
+
+
+
+    /*
+        Convert all possible SF decisions (designs) into JsonObject design representation and index into enumeration_store
+     */
+    private void buildEnumerationStore(JsonArray elements, ArrayList<ArrayList<String>> designs){
+        int enum_counter = this.enumeration_store.keySet().size();
+
+        for(ArrayList<String> design: designs){
+            JsonArray new_elements = new JsonArray();
+
+            /*  - Augment new_elements to our bit representation
+                - The size of new_elements should be the same as the size of design
+                - Iterate over each sf component and make the decision
+             */
+            for(int x = 0; x < elements.size(); x++){
+                JsonObject list_element         = elements.get(x).getAsJsonObject();
+                JsonArray  list_element_objects = list_element.getAsJsonArray("elements").deepCopy();
+                String     bit_str              = design.get(x);
+                int        sf_obj_idx           = bit_str.indexOf('1');
+
+                new_elements.add(list_element_objects.get(sf_obj_idx).getAsJsonObject().deepCopy());
+            }
+            this.enumeration_store.put(enum_counter, new_elements);
+            enum_counter++;
+        }
+    }
+
+
+
+
+    /*
+        Generate all bit strings for a single Standard Form decision
+     */
+    private ArrayList<ArrayList<String>> generateAllBinarySF_Strings(ArrayList<Integer> component_cardinalities){
+
+        /*
+            Each inner ArrayList<String> represents all the possible bit strings for that component
+         */
+        ArrayList<ArrayList<String>> component_bit_strings = new ArrayList<>();
+        for(Integer component_cardinality: component_cardinalities){
+
+            component_bit_strings.add(this.generateAllSF_ComponentStrings(component_cardinality));
+        }
+
+        ArrayList<ArrayList<String>> designs = new ArrayList<>();
+        for(ArrayList<String> component_strings: component_bit_strings){
+            if(designs.isEmpty()){
+                for(String component_string: component_strings){
+                    ArrayList<String> new_design = new ArrayList<>();
+                    new_design.add(component_string);
+                    designs.add(new_design);
+                }
+                continue;
+            }
+
+            ArrayList<ArrayList<String>> new_designs = new ArrayList<>();
+            for(ArrayList<String> design: designs){
+                /*
+                    Duplicate each design and add the next decided decision component string
+                 */
+                for(String component_string: component_strings){
+                    ArrayList<String> new_design = new ArrayList<>(design);
+                    new_design.add(component_string);
+                    new_designs.add(new_design);
+                }
+            }
+            designs = new_designs;
+        }
+
+        return designs;
+    }
+
+
+    private void recur_through_components(ArrayList<ArrayList<String>> component_strings, int level){
+       if(level == component_strings.size()){
+
+       }
+       else{
+
+       }
+    }
+
+
+
+
+    private ArrayList<String> generateAllSF_ComponentStrings(Integer component_cardinality){
+        ArrayList<String> strings = new ArrayList<>();
+
+        for(int x = 0; x < component_cardinality; x++){
+            StringBuilder str_build = new StringBuilder("");
+
+            for(int y = 0; y < component_cardinality; y++){
+                if(x == y){
+                    str_build.append('1');
+                }
+                else{
+                    str_build.append('0');
+                }
+            }
+            strings.add(str_build.toString());
+        }
+
+        return strings;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
