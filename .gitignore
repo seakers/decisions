@@ -5,3 +5,4 @@ build
 debug
 .gradle
 neo4j
+.idea
