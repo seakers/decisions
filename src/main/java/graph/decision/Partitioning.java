@@ -1,9 +1,11 @@
 package graph.decision;
 
 import app.App;
+import app.Files;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
 import graph.Decision;
 import graph.neo4j.DatabaseClient;
 import org.neo4j.driver.Record;
@@ -19,7 +21,7 @@ public class Partitioning extends Decision {
 //    \  / (_| | |  | | (_| | |_) | |  __/\__ \
 //     \/ \__,_|_|  |_|\__,_|_.__/|_|\___||___/
 
-
+    private String debug_dir = "/app/debug/partitioning/";
 
 
 
@@ -103,55 +105,144 @@ public class Partitioning extends Decision {
         }
 
         // 1. Randomize number of groups
-        JsonArray new_design_elements = new JsonArray();
+        JsonArray empty_groups = new JsonArray();
         Random    rand                = new Random();
-        int       numGroups           = rand.nextInt(active_indicies.size());
+        int       numGroups           = rand.nextInt(active_indicies.size())+1;
 
         // 1.1 Correct for group size
-        if(numGroups == 0){ numGroups = 1;}
-        if(numGroups > active_indicies.size()){ numGroups = active_indicies.size();}
+        // if(numGroups > active_indicies.size()){ numGroups = active_indicies.size();}
 
-        // 1.2 Create elements
+        // 1.2 Create empty groups
         for(int x=0;x<numGroups;x++){
             JsonObject element = new JsonObject();
             element.addProperty("active",true);
             element.addProperty("id", x);
             element.addProperty("type", "list");
             element.add("elements", new JsonArray());
-            new_design_elements.add(element);
+            empty_groups.add(element);
         }
 
-        // 2. Randomly assign elements to groups
-        int counter = 0;
-        ArrayList<Integer> indicies_used = new ArrayList<>();
-        for(int x = 0; x < active_indicies.size(); x++){
-            int idx = rand.nextInt(active_indicies.size());
-            while(indicies_used.contains(idx)){
-                idx = rand.nextInt(active_indicies.size());
-            }
-            indicies_used.add(idx);
 
-            int group_idx = counter % numGroups;
-            if(counter >= numGroups){
-                group_idx = rand.nextInt(numGroups);
-            }
-
-            new_design_elements.get(group_idx).getAsJsonObject().get("elements").getAsJsonArray().add(parent_dependencies.get(active_indicies.get(idx)).getAsJsonObject());
-            counter++;
+        // METHOD TWO -- START
+        // 2. Randomly assign elements to empty groups
+        for(Integer active_index: active_indicies){
+            JsonObject random_group = empty_groups.get(rand.nextInt(empty_groups.size())).getAsJsonObject();
+            random_group.getAsJsonArray("elements").add(parent_dependencies.get(active_index).getAsJsonObject());
         }
+
+        // 3. Iterate over groups to see if any are empty
+        for(int x = 0; x < empty_groups.size(); x++){
+            JsonObject group = empty_groups.get(x).getAsJsonObject();
+
+            // If a group is still empty, one of the groups must have multiple elements
+            // Find a free element to add to the group
+            if(group.getAsJsonArray("elements").size() == 0){
+                JsonObject free_element = this.get_free_element(empty_groups);
+                group.getAsJsonArray("elements").add(free_element);
+            }
+        }
+        // METHOD TWO -- END
+
+        // METHOD ONE -- START
+        // 2. Randomly assign elements to empty groups
+//        int counter = 0;
+//        ArrayList<Integer> indicies_used = new ArrayList<>();
+//        for(int x = 0; x < active_indicies.size(); x++){
+//            int idx = rand.nextInt(active_indicies.size());
+//            while(indicies_used.contains(idx)){
+//                idx = rand.nextInt(active_indicies.size());
+//            }
+//            indicies_used.add(idx);
+//
+//            int group_idx = counter % numGroups;
+//            if(counter >= numGroups){
+//                group_idx = rand.nextInt(numGroups);
+//            }
+//
+//            empty_groups.get(group_idx).getAsJsonObject().get("elements").getAsJsonArray().add(parent_dependencies.get(active_indicies.get(idx)).getAsJsonObject());
+//            counter++;
+//        }
+        // METHOD ONE -- END
+
 
 //        for(Integer idx: active_indicies){
 //            int group_idx = counter % numGroups;
 //            new_design_elements.get(group_idx).getAsJsonObject().get("elements").getAsJsonArray().add(parent_dependencies.get(idx).getAsJsonObject());
 //            counter++;
 //        }
-        System.out.println(this.gson.toJson(new_design_elements));
 
-        this.indexNewDesign(parent_dependencies, new_design_elements);
+        JsonArray repaired_groups = this.enforce_notation_constraint(empty_groups, parent_dependencies);
+
+        this.indexNewDesign(parent_dependencies, repaired_groups);
         this.updateNodeDecisions();
 
-
     }
+
+
+    public JsonArray enforce_notation_constraint(JsonArray entity_groups, JsonArray entities){
+        JsonArray repaired_entity_groups = new JsonArray();
+
+        ArrayList<Integer> short_notation_zeros = this.decisionToShortNotation(entity_groups, entities);
+        // Prune 0's off of arraylist
+        ArrayList<Integer> short_notation = new ArrayList<>();
+        for(Integer pos: short_notation_zeros){
+            if(pos != 0){
+                short_notation.add(pos);
+            }
+        }
+
+        ArrayList<Integer> repaired_notation = this.repairOperator(short_notation);
+
+
+        try{
+            ArrayList<Integer> groups_handled = new ArrayList<>();
+            for(int x = 0; x < short_notation.size(); x++){
+                int current_group_pos = short_notation.get(x) - 1;
+                if(!groups_handled.contains(current_group_pos)){
+                    repaired_entity_groups.add(entity_groups.get(current_group_pos).getAsJsonObject().deepCopy());
+                    groups_handled.add(current_group_pos);
+                }
+            }
+        }
+        catch (IndexOutOfBoundsException e){
+            System.out.println(this.gson.toJson(entity_groups));
+            System.out.println(short_notation);
+            e.printStackTrace();
+            System.exit(0);
+
+        }
+
+
+//        ArrayList<Integer> repair_check = this.decisionToShortNotation(repaired_entity_groups, entities);
+//        System.out.println("--> ORIGINAL: " + short_notation);
+//        System.out.println("---> DESIRED: " + repaired_notation);
+//        System.out.println("-------> NEW: " + repair_check);
+//
+//        System.out.println(this.gson.toJson(entity_groups));
+//        System.out.println("------");
+//        System.out.println(this.gson.toJson(repaired_entity_groups));
+
+        return repaired_entity_groups;
+    }
+
+
+    public JsonObject get_free_element(JsonArray groups){
+        boolean found = false;
+        JsonObject free_element = new JsonObject();
+        while(!found){
+            // Get a random group
+            JsonObject group = groups.get(this.rand.nextInt(groups.size())).getAsJsonObject();
+            if(group.getAsJsonArray("elements").size() > 1){
+                int rand_idx = this.rand.nextInt(group.getAsJsonArray("elements").size());
+                free_element = group.getAsJsonArray("elements").get(rand_idx).getAsJsonObject().deepCopy();
+                group.getAsJsonArray("elements").remove(rand_idx);
+                found = true;
+            }
+        }
+        return free_element;
+    }
+
+
 
 
 //     _____                  _
@@ -254,23 +345,32 @@ public class Partitioning extends Decision {
     public void crossoverDesigns(int papa, int mama, double mutation_probability) throws Exception{
 
         // DEPENDENCIES
-        JsonArray parent_dependencies = this.mergeLastParentDecisions(false);
+        JsonArray parent_dependencies = this.mergeLastParentDecisions(false).deepCopy();
 
         // CROSSOVER
         this.crossover(papa, mama, mutation_probability, parent_dependencies);
     }
 
 
+
+    public void crossover2(int papa, int mama, double mutation_probability, JsonArray parent_dependencies) throws Exception{
+
+    }
+
+
     public void crossover(int papa, int mama, double mutation_probability, JsonArray parent_dependencies) throws Exception{
 
+
+        System.out.println("----> PARTONING CROSSOVER");
+
         // PAPA
-        JsonObject papa_obj      = ((JsonElement) this.decisions.get(papa)).getAsJsonObject();
+        JsonObject papa_obj      = ((JsonElement) this.decisions.get(papa)).getAsJsonObject().deepCopy();
         JsonArray  papa_elements = papa_obj.get("elements").getAsJsonArray();
         JsonArray  papa_deps     = papa_obj.get("dependencies").getAsJsonArray();
         Random     rand          = new Random();
 
         // MAMA
-        JsonObject mama_obj      = ((JsonElement) this.decisions.get(mama)).getAsJsonObject();
+        JsonObject mama_obj      = ((JsonElement) this.decisions.get(mama)).getAsJsonObject().deepCopy();
         JsonArray  mama_elements = mama_obj.get("elements").getAsJsonArray();
         JsonArray  mama_deps     = mama_obj.get("dependencies").getAsJsonArray();
 
@@ -278,20 +378,31 @@ public class Partitioning extends Decision {
         ArrayList<Integer> short_papa = this.decisionToShortNotation(papa_obj);
         ArrayList<Integer> short_mama = this.decisionToShortNotation(mama_obj);
 
+//        this.writeParentInfo(papa_elements, short_papa, "papa_info.json");
+//        this.writeParentInfo(mama_elements, short_mama, "mama_info.json");
+
+
         // --> METHOD: split chromosomes based on greatest element crossover
 
         // 1. Get the first half of papa
         int       papa_half       = short_papa.size() / 2;
-        JsonArray first_half_papa = this.PACK_arch2sats(papa_deps, short_papa, 0, papa_half);
+        JsonArray first_half_papa = this.PACK_arch2sats(papa_deps, short_papa, 0, papa_half).deepCopy();
         System.out.println("---> first_half_papa " + this.gson.toJson(first_half_papa));
 
         // 2. Get the second half of mama
         int       mama_half        = short_mama.size() / 2;
-        JsonArray second_half_mama = this.PACK_arch2sats(mama_deps, short_mama, mama_half, short_mama.size());
+        JsonArray second_half_mama = this.PACK_arch2sats(mama_deps, short_mama, mama_half, short_mama.size()).deepCopy();
         System.out.println("---> second_half_mama " + this.gson.toJson(second_half_mama));
 
+
+//        this.writeParentHalfs(first_half_papa, second_half_mama, parent_dependencies, "parent_halfs.json");
+
+
+
         // 3. Determine which groups from second_half_mama need to be merged with first_half_papa then merge
-        JsonArray child = this.crossoverParentGroups(first_half_papa, second_half_mama, short_mama, mama_half);
+        JsonArray child = this.crossoverParentGroups(first_half_papa, second_half_mama, short_mama, mama_half).deepCopy();
+//        System.exit(0);
+
 
         // 4. Repair child group ids
         child = this.repairGroupIDs(child);
@@ -307,8 +418,11 @@ public class Partitioning extends Decision {
             child = this.applyRandomMutationOperator(child);
         }
 
-        // 7. Index child design
-        this.indexNewDesign(parent_dependencies, child);
+        // 7.1 Enforce notation constraint - NEW
+        JsonArray child_enforce = this.enforce_notation_constraint(child, parent_dependencies);
+
+        // 7.2 Index child design
+        this.indexNewDesign(parent_dependencies, child_enforce);
 
         // 8. Update node database
         this.updateNodeDecisions();
@@ -452,16 +566,22 @@ public class Partitioning extends Decision {
     }
 
     private JsonArray crossoverParentGroups(JsonArray first_half_papa, JsonArray second_half_mama, ArrayList<Integer> short_mama, int short_mama_start_idx){
+        System.out.println("\n------- CROSSING OVER PARENTS -------");
+        System.out.println("--- SHORT MAMA: " + short_mama);
+        System.out.println("--- MAMA START: " + short_mama_start_idx);
+
         JsonArray child_chromosome = new JsonArray();
 
-        // 1. Find largest group # in short_mama
-        int largest_group_mama_fh = 0;
+        // 1. Find largest group # in the first half of short_mama
+        // int largest_group_mama_fh = Collections.max(short_mama);
+        int largest_group_mama_fh = 0; // 2
         for(int x = 0; x < short_mama_start_idx; x++){
             int mama_group = short_mama.get(x);
             if(mama_group > largest_group_mama_fh){
                 largest_group_mama_fh = mama_group;
             }
         }
+        System.out.println("--- LARGEST GROUP FH: " + largest_group_mama_fh);
 
         // 2. See if any group #s in mama second half are <= largest group # in mama first half
         ArrayList<Integer> merge_mama_group = new ArrayList<>();
@@ -477,6 +597,7 @@ public class Partitioning extends Decision {
                 merge_mama_group.add(0);
             }
         }
+        System.out.println("--- MAMA MERGE GROUP: " + merge_mama_group);
 
         // 3. Determine which groups in second_half_mama need to be merged with random first_half_papa group
         int mama_item_counter = 0;
@@ -1217,6 +1338,32 @@ public class Partitioning extends Decision {
             counter++;
         }
         return -1;
+    }
+
+
+
+    public void writeParentInfo(JsonArray parent_elements, ArrayList<Integer> parent_grouping, String file_name){
+
+        String full_file_path = this.debug_dir + "crossover/" + file_name;
+
+        JsonElement parent_short_json = this.gson.toJsonTree(parent_grouping, new TypeToken<ArrayList<Integer>>() {}.getType() );
+        JsonArray to_write = new JsonArray();
+        to_write.add(parent_elements);
+        to_write.add(parent_short_json);
+
+        Files.writeDebugFile(full_file_path, to_write);
+    }
+
+    public void writeParentHalfs(JsonArray papa_half, JsonArray mama_half, JsonArray child_elements, String file_name){
+
+        String full_file_path = this.debug_dir + "crossover/" + file_name;
+
+        JsonObject to_write = new JsonObject();
+        to_write.add("papa_half", papa_half);
+        to_write.add("mama_half", mama_half);
+        to_write.add("child_entities", child_elements);
+
+        Files.writeDebugFile(full_file_path, to_write);
     }
 
 

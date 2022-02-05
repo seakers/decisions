@@ -143,76 +143,40 @@ public class Permuting extends Decision {
 
     @Override
     public void crossoverDesigns(int papa, int mama, double mutation_probability, JsonArray dependency) throws Exception{
-        System.out.println("-----> PERMUTING CROSSOVER: " + papa + " " + mama);
-        Random rand = new Random();
 
-        // PAPA
-        JsonObject papa_obj      = ((JsonElement) this.decisions.get(papa)).getAsJsonObject();
-        JsonArray  papa_elements = papa_obj.get("elements").getAsJsonArray();
-        JsonArray  papa_deps     = papa_obj.get("dependencies").getAsJsonArray();
-        int        papa_size     = papa_elements.size();
-
-        // MAMA
-        JsonObject mama_obj      = ((JsonElement) this.decisions.get(mama)).getAsJsonObject();
-        JsonArray  mama_elements = mama_obj.get("elements").getAsJsonArray();
-        JsonArray  mama_deps     = mama_obj.get("dependencies").getAsJsonArray();
-        int        mama_size     = mama_elements.size();
-
-        // DEPENDENCIES
-        JsonArray parent_dependencies = dependency;
-        ArrayList<Integer> short_papa = this.decisionToShortNotation(papa_obj);
-        ArrayList<Integer> short_mama = this.decisionToShortNotation(mama_obj);
-
-        System.out.println("---> PAPA ELEMENTS: " + this.gson.toJson(papa_elements));
-        System.out.println("---> MAMA ELEMENTS: " + this.gson.toJson(mama_elements));
-
-        System.out.println("----> SHORT PAPA: "+ short_papa);
-        System.out.println("----> SHORT MAMA: "+ short_mama);
-
-        // 1. Get first half of papa
-        ArrayList<Integer> split_papa = this.splitPapa(short_papa);
-
-        System.out.println("----> SPLIT PAPA: "+ split_papa);
-
-        // 2. Integrate mama into split_papa
-        ArrayList<Integer> child_order = this.integrateMama(split_papa, short_mama);
-
-        // 3. Resolve dependencies
-        JsonArray child = this.crossoverResolutionOperator(child_order, parent_dependencies);
-
-        // 4. Mutation operator
-        if(Decision.getProbabilityResult(mutation_probability)){
-            child = this.mutationSwapsTwoElements(child);
-        }
-
-        // 4. Index child design
-        this.indexNewDesign(parent_dependencies, child);
-
-        // 5. Update node database
-        this.updateNodeDecisions();
+        // CROSSOVER
+        this.crossover(papa, mama, mutation_probability, dependency);
 
     }
-
 
     @Override
     public void crossoverDesigns(int papa, int mama, double mutation_probability) throws Exception{
+
+        JsonArray parent_dependencies = this.mergeLastParentDecisions(false).deepCopy();
+
+        this.crossover(papa, mama, mutation_probability, parent_dependencies);
+    }
+
+
+
+    public void crossover(int papa, int mama, double mutation_probability, JsonArray parent_dependencies) throws Exception{
+
         System.out.println("-----> PERMUTING CROSSOVER: " + papa + " " + mama);
         Random rand = new Random();
 
         // PAPA
-        JsonObject papa_obj      = ((JsonElement) this.decisions.get(papa)).getAsJsonObject();
+        JsonObject papa_obj      = ((JsonElement) this.decisions.get(papa)).getAsJsonObject().deepCopy();
         JsonArray  papa_elements = papa_obj.get("elements").getAsJsonArray();
         JsonArray  papa_deps     = papa_obj.get("dependencies").getAsJsonArray();
         int        papa_size     = papa_elements.size();
 
         // MAMA
-        JsonObject mama_obj      = ((JsonElement) this.decisions.get(mama)).getAsJsonObject();
+        JsonObject mama_obj      = ((JsonElement) this.decisions.get(mama)).getAsJsonObject().deepCopy();
         JsonArray  mama_elements = mama_obj.get("elements").getAsJsonArray();
         JsonArray  mama_deps     = mama_obj.get("dependencies").getAsJsonArray();
         int        mama_size     = mama_elements.size();
 
         // DEPENDENCIES
-        JsonArray parent_dependencies = this.mergeLastParentDecisions(false);
         ArrayList<Integer> short_papa = this.decisionToShortNotation(papa_obj);
         ArrayList<Integer> short_mama = this.decisionToShortNotation(mama_obj);
 
@@ -231,7 +195,7 @@ public class Permuting extends Decision {
         ArrayList<Integer> child_order = this.integrateMama(split_papa, short_mama);
 
         // 3. Resolve dependencies
-        JsonArray child = this.crossoverResolutionOperator(child_order, parent_dependencies);
+        JsonArray child = this.crossoverResolutionOperator(child_order, parent_dependencies).deepCopy();
 
         // 4. Mutation operator
         if(Decision.getProbabilityResult(mutation_probability)){
@@ -244,9 +208,10 @@ public class Permuting extends Decision {
         // 5. Update node database
         this.updateNodeDecisions();
 
-
-
     }
+
+
+
 
     // CHANGE TO NOT ASSUME CHILD DEPS ARE ACTIVE !!!
     private JsonArray crossoverResolutionOperator(ArrayList<Integer> child_order, JsonArray child_deps){

@@ -11,6 +11,7 @@ import formulations.Decadal;
 import graph.Graph;
 import graph.neo4j.DatabaseClient;
 import graph.utils.Design;
+import hand_crafted.ExpertFormulation;
 import moea.Algorithm;
 import moea.Results;
 import moea.problems.ADDProblem;
@@ -33,11 +34,12 @@ import java.util.concurrent.TimeUnit;
 
 public class App {
 
-
     public static void main(String[] args) {
 
-        int runs = 1;
-        for(int x = 0; x < runs; x++) {
+
+        int runs = 30;
+        for(int run_number = 0; run_number < runs; run_number++) {
+            System.gc();
 
 
 //  _____ _   _ _____ _______
@@ -82,7 +84,7 @@ public class App {
             String mutation_type = "DISJOINT";
 
             // GRAPH TYPE: Decadal / GNC / SMAP / GNC_TEST
-            String graph_type = "GNC_TEST";
+            String graph_type = "Decadal";
 
             // TRAVERSAL
             String breadthTraversalGraph = "breadth-graph";
@@ -99,7 +101,8 @@ public class App {
             String password           = System.getenv("NEO4J_PASSWORD");
             String problem            = System.getenv("PROBLEM");
             // String eval_queue         = System.getenv("EVAL_QUEUE");
-            String eval_queue         = "add_queue_10";
+            // String eval_queue         = "add_queue_10";
+            String eval_queue         = App.getSaltString(15);
             String vassar_queue_url   = System.getenv("VASSAR_QUEUE");
 
 
@@ -240,30 +243,46 @@ public class App {
 // | |  | | |__| | |____ / ____ \
 // |_|  |_|\____/|______/_/    \_\
 
-            int max_evals = 521;
+            int max_evals = 1000;
             double mutation_probability = 0.25;
             double crossover_probability = 1;
-            int initial_pop_size = 20;
+            int initial_pop_size = 30;
 
             // - MUTATION ARRAY PROBABILITIES
             ArrayList<Double> mutation_probabilities = new ArrayList<>();
+
+            // - GN&C
+//            mutation_probabilities.add(1.0); // ROOT
+//            mutation_probabilities.add(0.2); // - DOWN SELECTION
+//            mutation_probabilities.add(0.2); // - DOWN SELECTION
+//            mutation_probabilities.add(0.2); // - DOWN SELECTION
+//            mutation_probabilities.add(0.2); // - STANDARD FORM
+//            mutation_probabilities.add(0.2); // - STANDARD FORM
+//            mutation_probabilities.add(0.2); // - STANDARD FORM
+//            mutation_probabilities.add(0.2); // - ASSIGNING
+//            mutation_probabilities.add(0.2); // - ASSIGNING
+//            mutation_probabilities.add(1.0); // DESIGN
+
+            // - EOSS
             mutation_probabilities.add(1.0); // ROOT
-            mutation_probabilities.add(0.222); // - DOWN SELECTION
-            mutation_probabilities.add(0.222); // - DOWN SELECTION
-            mutation_probabilities.add(0.222); // - STANDARD FORM
-            mutation_probabilities.add(0.222); // - STANDARD FORM
-            mutation_probabilities.add(0.222); // - ASSIGNING
+            mutation_probabilities.add(0.6); // - DOWN SELECTION
+            mutation_probabilities.add(0.7); // - PARTITIONING
+            mutation_probabilities.add(0.5); // - PERMUTING
             mutation_probabilities.add(1.0); // DESIGN
+
+
+
 
             if (moea_full) {
 
                 // 4. Build MOEA Algorithm
                 Algorithm ga = new Algorithm.Builder(graph, sqsClient)
-                        .setNumObjectives(2)
+                        .setNumObjectives(3)
                         .setID("test_add_ga")
                         .setEvalQueueUrl(eval_queue_url)
                         .setMutationArrayProbabilities(mutation_probabilities)
                         .setProperties(max_evals, initial_pop_size, crossover_probability, mutation_probability)
+                        .setRunNumber(run_number)
                         .build();
 
                 // 4.1 Start MOEA
@@ -585,7 +604,7 @@ public class App {
         Analyzer analyzer = new Analyzer()
                 .withProblem(problem)
                 .withIdealPoint(-1.1, -0.1, -0.1)
-                .withReferencePoint(0, 10000, 2000)
+                .withReferencePoint(0, 10000, 5000)
                 .includeHypervolume();
 
         analyzer.add("population", pop);

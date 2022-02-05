@@ -387,7 +387,7 @@ public class DatabaseClient {
 
             // 2. Edges
 
-            // ROOT
+            // ROOT -> DOWN SELECTING
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
                             problem,
@@ -409,6 +409,8 @@ public class DatabaseClient {
                     )
             );
 
+
+            // DOWN SELECTING -> STANDARD FORM
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
                             problem,
@@ -430,6 +432,9 @@ public class DatabaseClient {
                     )
             );
 
+
+
+            // ASSIGNING
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
                             problem,
@@ -453,6 +458,9 @@ public class DatabaseClient {
                     )
             );
 
+
+
+            // FINAL
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
                             problem,
@@ -559,33 +567,34 @@ public class DatabaseClient {
         try (Session session1 = this.driver.session()){
 
             String problem         = this.problem;
-            String root_parameters = this.gson.toJson(GuidanceNavigationAndControl.getRootParameters());
+            String root_parameters = this.gson.toJson(GuidanceNavigationAndControl.getProdRootParameters());
 
             // 1. Create nodes
             session1.writeTransaction( tx -> addGenericRoot(tx, problem, root_parameters));
 
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Sensor Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Computer Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Actuator Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Num Sensor Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Num Computer Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Num Actuator Selection"));
 
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Sensor Type Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Computer Type Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Actuator Type Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Assigning", "Sensor To Computer"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Sensor Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Computer Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Actuator Selection"));
+
+            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Assigning", "Sensor to Computer"));
             session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Assigning", "Computer to Actuator"));
 
             session1.writeTransaction( tx -> addGenericFinal(tx, problem));
 
             // 2. Create dependencies
 
-            // ROOT DOWN SELECTING
+            // ROOT -> DOWN SELECTING
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
                             problem,
                             "Root",
                             "Start",
                             "Decision",
-                            "Sensor Selection",
+                            "Num Sensor Selection",
                             "ROOT_DEPENDENCY"
                     )
             );
@@ -595,7 +604,7 @@ public class DatabaseClient {
                             "Root",
                             "Start",
                             "Decision",
-                            "Computer Selection",
+                            "Num Computer Selection",
                             "ROOT_DEPENDENCY"
                     )
             );
@@ -605,43 +614,8 @@ public class DatabaseClient {
                             "Root",
                             "Start",
                             "Decision",
-                            "Actuator Selection",
+                            "Num Actuator Selection",
                             "ROOT_DEPENDENCY"
-                    )
-            );
-
-            // ROOT STANDARD FORM
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Root",
-                            "Start",
-                            "Decision",
-                            "Sensor Type Selection",
-                            "ROOT_DEPENDENCY",
-                            "type2"
-                    )
-            );
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Root",
-                            "Start",
-                            "Decision",
-                            "Computer Type Selection",
-                            "ROOT_DEPENDENCY",
-                            "type2"
-                    )
-            );
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Root",
-                            "Start",
-                            "Decision",
-                            "Actuator Type Selection",
-                            "ROOT_DEPENDENCY",
-                            "type2"
                     )
             );
 
@@ -651,33 +625,30 @@ public class DatabaseClient {
                     tx -> addGenericDependency(tx,
                             problem,
                             "Decision",
-                            "Sensor Selection",
+                            "Num Sensor Selection",
                             "Decision",
-                            "Sensor Type Selection",
-                            "DEPENDENCY",
-                            "type1"
+                            "Sensor Selection",
+                            "DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
                             problem,
+                            "Decision",
+                            "Num Computer Selection",
                             "Decision",
                             "Computer Selection",
-                            "Decision",
-                            "Computer Type Selection",
-                            "DEPENDENCY",
-                            "type1"
+                            "DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
                             problem,
                             "Decision",
-                            "Actuator Selection",
+                            "Num Actuator Selection",
                             "Decision",
-                            "Actuator Type Selection",
-                            "DEPENDENCY",
-                            "type1"
+                            "Actuator Selection",
+                            "DEPENDENCY"
                     )
             );
 
@@ -688,8 +659,9 @@ public class DatabaseClient {
                             "Decision",
                             "Sensor Selection",
                             "Decision",
-                            "Sensor To Computer",
-                            "DEPENDENCY"
+                            "Sensor to Computer",
+                            "DEPENDENCY",
+                            "FROM"
                     )
             );
             session1.writeTransaction(
@@ -698,10 +670,13 @@ public class DatabaseClient {
                             "Decision",
                             "Computer Selection",
                             "Decision",
-                            "Sensor To Computer",
-                            "DEPENDENCY"
+                            "Sensor to Computer",
+                            "DEPENDENCY",
+                            "TO"
                     )
             );
+
+
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
                             problem,
@@ -709,7 +684,8 @@ public class DatabaseClient {
                             "Computer Selection",
                             "Decision",
                             "Computer to Actuator",
-                            "DEPENDENCY"
+                            "DEPENDENCY",
+                            "FROM"
                     )
             );
             session1.writeTransaction(
@@ -719,7 +695,8 @@ public class DatabaseClient {
                             "Actuator Selection",
                             "Decision",
                             "Computer to Actuator",
-                            "DEPENDENCY"
+                            "DEPENDENCY",
+                            "TO"
                     )
             );
 
@@ -729,37 +706,7 @@ public class DatabaseClient {
                     tx -> addGenericDependency(tx,
                             problem,
                             "Decision",
-                            "Sensor Type Selection",
-                            "Design",
-                            "Finish",
-                            "FINAL_DEPENDENCY"
-                    )
-            );
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
-                            "Computer Type Selection",
-                            "Design",
-                            "Finish",
-                            "FINAL_DEPENDENCY"
-                    )
-            );
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
-                            "Actuator Type Selection",
-                            "Design",
-                            "Finish",
-                            "FINAL_DEPENDENCY"
-                    )
-            );
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
-                            "Sensor To Computer",
+                            "Sensor to Computer",
                             "Design",
                             "Finish",
                             "FINAL_DEPENDENCY"
@@ -784,9 +731,9 @@ public class DatabaseClient {
         try (Session session1 = this.driver.session()){
 
             String problem         = this.problem;
-            // String root_parameters = this.gson.toJson(Decadal.getRootParameters());
+            String root_parameters = this.gson.toJson(Decadal.getRootParameters());
             // String root_parameters = this.gson.toJson(Decadal.getBigRootParameters());
-            String root_parameters = this.gson.toJson(Decadal.get2007Parameters());
+//            String root_parameters = this.gson.toJson(Decadal.get2007Parameters());
 
             // 1. Create nodes
             session1.writeTransaction( tx -> addGenericRoot(tx, problem, root_parameters));

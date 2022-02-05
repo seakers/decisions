@@ -1,8 +1,10 @@
 package moea.problems;
 
 import app.App;
-import com.google.gson.JsonArray;
+import app.Files;
+import com.google.gson.*;
 import evaluation.GNC_Evaluator;
+import evaluation.GNC_Evaluator2;
 import graph.Graph;
 import moea.solutions.ADDSolution;
 import org.moeaframework.core.Solution;
@@ -10,6 +12,7 @@ import org.moeaframework.problem.AbstractProblem;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.*;
 
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +33,11 @@ public class ADDProblem extends AbstractProblem {
 
     private GNC_Evaluator gnc_evaluator;
 
+    private JsonObject eval_metrics;
+    private JsonObject initial_pop_metrics;
+
+    private int num_evals;
+
 
     public ADDProblem(Graph graph, int numObjectives, SqsClient sqs, String eval_queue_url){
         super(1, numObjectives);
@@ -40,6 +48,10 @@ public class ADDProblem extends AbstractProblem {
         this.vassar_queue = System.getenv("VASSAR_QUEUE");
         this.targeted_run = false;
         this.gnc_evaluator = new GNC_Evaluator((5/3), 9, 1, 10);
+
+        this.eval_metrics = this.init_eval_metrics();
+        this.initial_pop_metrics = this.init_eval_metrics();
+        this.num_evals = 0;
     }
 
     public ADDProblem(Graph graph, int numObjectives, SqsClient sqs, String eval_queue_url, String target_node, JsonArray target_dependency){
@@ -53,9 +65,30 @@ public class ADDProblem extends AbstractProblem {
         this.target_node = target_node;
         this.target_dependency = target_dependency;
         this.gnc_evaluator = new GNC_Evaluator((5/3), 9, 1, 10);
+
+        this.eval_metrics = this.init_eval_metrics();
+        this.initial_pop_metrics = this.init_eval_metrics();
+        this.num_evals = 0;
     }
 
 
+    public JsonObject init_eval_metrics(){
+        JsonObject metrics = new JsonObject();
+
+        metrics.addProperty("1 instrument", 0);
+        metrics.addProperty("2 instrument", 0);
+        metrics.addProperty("3 instrument", 0);
+        metrics.addProperty("4 instrument", 0);
+        metrics.addProperty("5 instrument", 0);
+
+        metrics.addProperty("1 satellite", 0);
+        metrics.addProperty("2 satellite", 0);
+        metrics.addProperty("3 satellite", 0);
+        metrics.addProperty("4 satellite", 0);
+        metrics.addProperty("5 satellite", 0);
+
+        return metrics;
+    }
 
 
 
@@ -69,8 +102,15 @@ public class ADDProblem extends AbstractProblem {
 
         // 2. Evaluate if not evaluated
         if(!arch.getAlreadyEvaluated()){
-            evaluateArch_GNC(arch);
-            // evaluateArch(arch);
+            // evaluateArch_GNC(arch);
+            evaluateArch(arch);
+            this.record_eval_metrics(arch, this.eval_metrics);
+            if(this.num_evals < 30){
+                this.record_eval_metrics(arch, this.initial_pop_metrics);
+            }
+
+
+            this.num_evals++;
         }
         else{
             System.out.println("---> Architecture already evaluated!!!");
@@ -81,26 +121,110 @@ public class ADDProblem extends AbstractProblem {
 
     public void evaluateArch_GNC(ADDSolution arch){
 
-//        double connection_weight = (5/3);
-//        double dissimiliar_component_property = 9;
-//        double connection_reliability = 1;
-//        double years = 10;
-//        GNC_Evaluator evaluator = new GNC_Evaluator(connection_weight, dissimiliar_component_property, connection_reliability, years);
+        GNC_Evaluator2 evaluator = new GNC_Evaluator2();
 
         String design = arch.getDesignString();
 
-        ArrayList<Double> results = this.gnc_evaluator.evaluate(design);
+        ArrayList<Double> results = evaluator.evaluate(design);
 
         double reliability = results.get(0);
         double mass = results.get(1);
-//        double reliability = evaluator.evaluate_reliability(design);
-//        double mass        = evaluator.evaluate_mass(design);
 
         // Maximize reliability and minimize mass
         arch.setObjective(0, -reliability);
         arch.setObjective(1, mass);
         arch.design_str = arch.getDesignString();
         arch.setAlreadyEvaluated(true);
+    }
+
+
+
+    public void record_eval_metrics(ADDSolution solution, JsonObject eval_metrics){
+        String design_string = solution.getDesignString();
+        JsonArray array = (new JsonParser().parse(design_string).getAsJsonArray());
+        int num_satellites = array.size();
+
+        if(num_satellites == 1){
+            int current_evals = eval_metrics.get("1 satellite").getAsInt() + 1;
+            eval_metrics.addProperty("1 satellite", current_evals);
+        }
+        if(num_satellites == 2){
+            int current_evals = eval_metrics.get("2 satellite").getAsInt() + 1;
+            eval_metrics.addProperty("2 satellite", current_evals);
+        }
+        if(num_satellites == 3){
+            int current_evals = eval_metrics.get("3 satellite").getAsInt() + 1;
+            eval_metrics.addProperty("3 satellite", current_evals);
+        }
+        if(num_satellites == 4){
+            int current_evals = eval_metrics.get("4 satellite").getAsInt() + 1;
+            eval_metrics.addProperty("4 satellite", current_evals);
+        }
+        if(num_satellites == 5){
+            int current_evals = eval_metrics.get("5 satellite").getAsInt() + 1;
+            eval_metrics.addProperty("5 satellite", current_evals);
+        }
+
+        ArrayList<String> instruments = new ArrayList<>();
+        for(int x = 0; x < num_satellites; x++){
+            JsonObject sat = array.get(x).getAsJsonObject();
+            JsonArray sat_insts = sat.getAsJsonArray("elements");
+            for(int y = 0; y < sat_insts.size(); y++){
+                String inst = sat_insts.get(y).getAsJsonObject().get("name").getAsString();
+                if(!instruments.contains(inst)){
+                    instruments.add(inst);
+                }
+            }
+        }
+
+        int num_instruments = instruments.size();
+
+        if(num_instruments == 1){
+            int current_evals = eval_metrics.get("1 instrument").getAsInt() + 1;
+            eval_metrics.addProperty("1 instrument", current_evals);
+        }
+        if(num_instruments == 2){
+            int current_evals = eval_metrics.get("2 instrument").getAsInt() + 1;
+            eval_metrics.addProperty("2 instrument", current_evals);
+        }
+        if(num_instruments == 3){
+            int current_evals = eval_metrics.get("3 instrument").getAsInt() + 1;
+            eval_metrics.addProperty("3 instrument", current_evals);
+        }
+        if(num_instruments == 4){
+            int current_evals = eval_metrics.get("4 instrument").getAsInt() + 1;
+            eval_metrics.addProperty("4 instrument", current_evals);
+        }
+        if(num_instruments == 5){
+            int current_evals = eval_metrics.get("5 instrument").getAsInt() + 1;
+            eval_metrics.addProperty("5 instrument", current_evals);
+        }
+    }
+
+    public void write_metrics(int run_number){
+        try{
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            FileWriter outputfile = new FileWriter(Files.get_metrics_file(run_number));
+            gson.toJson(this.eval_metrics, outputfile);
+            outputfile.flush();
+            outputfile.close();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    public void write_init_pop_metrics(int run_number){
+        try{
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            FileWriter outputfile = new FileWriter(Files.get_init_metrics_file(run_number));
+            gson.toJson(this.initial_pop_metrics, outputfile);
+            outputfile.flush();
+            outputfile.close();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
 
@@ -115,7 +239,7 @@ public class ADDProblem extends AbstractProblem {
             arch.printDesign();
         }
 
-
+        // System.exit(0);
 
         // App.sleep(2);
 

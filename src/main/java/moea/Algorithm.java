@@ -34,6 +34,8 @@ public class Algorithm implements Runnable{
     private TypedProperties properties;
     private String          id;
     private String          eval_queue_url;
+    private int             runNumber;
+
 
     private int initialPopSize;
     private int maxEvals;
@@ -64,6 +66,7 @@ public class Algorithm implements Runnable{
 
         private int initialPopSize;
         private int maxEvals;
+        private int runNumber;
         private double crossoverProbability;
         private double mutationProbability;
         private ArrayList<Double> mutation_probabilities;
@@ -81,6 +84,12 @@ public class Algorithm implements Runnable{
             this.target_dependency = null;
             this.target_node = null;
             this.mutation_probabilities = new ArrayList<>();
+            this.runNumber = 0;
+        }
+
+        public Builder setRunNumber(int runNumer){
+            this.runNumber = runNumer;
+            return this;
         }
 
         public Builder setNumObjectives(int numObjectives){
@@ -146,6 +155,7 @@ public class Algorithm implements Runnable{
             build.properties     = this.properties;
             build.sqs            = this.sqs;
             build.eval_queue_url = this.eval_queue_url;
+            build.runNumber      = this.runNumber;
 
             // --> BUILD PROBLEM
             if(build.targeted_run){
@@ -246,7 +256,7 @@ public class Algorithm implements Runnable{
         // SUBMIT MODA
         ExecutorService                                     pool   = Executors.newFixedThreadPool(1);
         CompletionService<org.moeaframework.core.Algorithm> ecs    = new ExecutorCompletionService<>(pool);
-        ecs.submit(new ADDSearch(this.eMOEA, this.properties, this.id));
+        ecs.submit(new ADDSearch(this.eMOEA, this.properties, this.id, this.runNumber));
 
         // JOIN MOEA ON FINISH
         try {
@@ -276,6 +286,10 @@ public class Algorithm implements Runnable{
         } catch (InterruptedException | ExecutionException ex) {
             ex.printStackTrace();
         }
+
+
+//        ((ADDProblem) this.addProblem).write_metrics(this.runNumber);
+//        ((ADDProblem) this.addProblem).write_init_pop_metrics(this.runNumber);
 
         pool.shutdown();
         System.out.println("DONE");

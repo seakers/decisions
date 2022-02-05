@@ -19,6 +19,27 @@ import java.util.Iterator;
 
 public class Files {
 
+
+
+    public static String hv_csv_file = "/app/hypervolume.csv";
+
+    public static String get_hv_file(int run_number){
+        return "/app/eos_formulation/rrmoea2/crossover/run_" + run_number + ".csv";
+    }
+    public static String get_design_file(int run_number){
+        return "/app/eos_formulation/rrmoea2/designs/design_paper_" + run_number + ".json";
+    }
+
+    public static String get_metrics_file(int run_number){
+        return "/app/eos_formulation/rrmoea2/metrics/metrics_" + run_number + ".json";
+    }
+
+    public static String get_init_metrics_file(int run_number){
+        return "/app/eos_formulation/rrmoea2/metrics/init_metrics_" + run_number + ".json";
+    }
+
+
+
     public static String selectingDir = "/app/eos_formulation/smap/selecting/";
     public static String decadalAddDir = "/app/eos_formulation/decadal/add";
     public static String decadalAddDir2 = "/app/eos_formulation/decadal/add/";
@@ -116,9 +137,8 @@ public class Files {
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             FileWriter outputfile = new FileWriter(file_path);
 
-            Iterator<Solution> itr = population.iterator();
-            while(itr.hasNext()){
-                ADDSolution soln = (ADDSolution) itr.next();
+            for (Solution solution : population) {
+                ADDSolution soln = (ADDSolution) solution;
                 JsonArray design = new GsonBuilder().create().fromJson(soln.design_str, JsonArray.class).getAsJsonArray();
                 designs.add(design);
             }
@@ -210,10 +230,52 @@ public class Files {
         }
     }
 
+    public static void writeDebugFile(String full_file_path, JsonObject elements){
+
+        try{
+            Gson       gson       = new GsonBuilder().setPrettyPrinting().create();
+            FileWriter outputfile = new FileWriter(full_file_path);
+
+            gson.toJson(elements, outputfile);
+            outputfile.flush();
+            outputfile.close();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+    }
 
 
 
 
+
+
+    public static void writeReliabilityResults2(NondominatedPopulation pop, int run_number){
+        int num_solutions = pop.size();
+        JsonArray designs = new JsonArray();
+        try{
+            for(int x = 0; x < num_solutions; x++){
+                double reliability = pop.get(x).getObjective(0) * -1;
+                double mass = pop.get(x).getObjective(1);
+                String design_str = ((ADDSolution) pop.get(x)).design_str;
+                JsonObject design = new JsonObject();
+                design.addProperty("reliability", reliability);
+                design.addProperty("mass", mass);
+                design.addProperty("design", design_str);
+                designs.add(design);
+            }
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            FileWriter outputfile = new FileWriter("/app/gnc_formulation/designs/designs_paper_"+run_number+".json");
+            gson.toJson(designs, outputfile);
+            outputfile.flush();
+            outputfile.close();
+        }
+        catch (Exception e){
+            e.printStackTrace();
+            System.out.println("WRITING EXCEPTION");
+            System.exit(0);
+        }
+    }
 
 
 

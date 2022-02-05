@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import graph.Decision;
 import graph.neo4j.DatabaseClient;
 import graph.structure.Structure;
+import org.apache.commons.lang3.StringUtils;
 import org.neo4j.driver.Record;
 
 import java.lang.reflect.Array;
@@ -92,12 +93,14 @@ public class DownSelecting extends Decision {
         JsonArray new_design_elements = parent_dependencies.deepCopy();
         Random    rand                = new Random();
 
-        Iterator element_itr = new_design_elements.iterator();
-        while(element_itr.hasNext()){
-            JsonObject element = ((JsonElement) element_itr.next()).getAsJsonObject();
-            boolean val        = rand.nextBoolean();
-            element.addProperty("active", val);
-        }
+//        Iterator element_itr = new_design_elements.iterator();
+//        while(element_itr.hasNext()){
+//            JsonObject element = ((JsonElement) element_itr.next()).getAsJsonObject();
+//            boolean val        = rand.nextBoolean();
+//            element.addProperty("active", val);
+//        }
+
+        new_design_elements = this.randomDesignFromCardinality(new_design_elements);
 
         // Repair design if needed
         new_design_elements = this.repairOperator(new_design_elements);
@@ -135,6 +138,47 @@ public class DownSelecting extends Decision {
         this.updateNodeDecisions();
     }
 
+
+    public JsonArray randomDesignFromCardinality(JsonArray new_design_elements){
+        int num_elements = new_design_elements.size();
+        int picked_num = (this.rand.nextInt(num_elements) + 1);
+
+        String bit_string = this.random_bit_string_on_true_values(num_elements, picked_num);
+
+        Iterator element_itr = new_design_elements.iterator();
+        int counter = 0;
+        while(element_itr.hasNext()){
+            JsonObject element = ((JsonElement) element_itr.next()).getAsJsonObject();
+            if(bit_string.charAt(counter) == '1'){
+                element.addProperty("active", true);
+            }
+            else{
+                element.addProperty("active", false);
+            }
+            counter++;
+        }
+        return new_design_elements;
+    }
+
+    public String random_bit_string_on_true_values(int length, int true_occurrances){
+        ArrayList<String> bit_strings = new ArrayList<>();
+        int[] arr = new int[length];
+        this.generateAllBinaryStrings(length, arr, 0, bit_strings);
+
+        ArrayList<String> valid_strings = new ArrayList<>();
+        for(String bit_str: bit_strings){
+            int occurrances = StringUtils.countMatches(bit_str, "1");
+            if(occurrances == true_occurrances){
+                valid_strings.add(bit_str);
+            }
+        }
+
+        if(valid_strings.isEmpty()){
+            System.out.println("--> NO VALID STRINGS IN LIST " + bit_strings + " FOR " + true_occurrances + " OCCURRANCES OF 1");
+            System.exit(0);
+        }
+        return (valid_strings.get(this.rand.nextInt(valid_strings.size())));
+    }
 
 
 
@@ -213,8 +257,8 @@ public class DownSelecting extends Decision {
         child = this.resolutionOperator(crossover, child);
 
         // MUTATION
-        // if(Decision.getProbabilityResult(mutation_probability)){ child = this.mutationOperator(child); }
-        child = this.mutationOperator2(child);
+        if(Decision.getProbabilityResult(mutation_probability)){ child = this.mutationOperator(child); }
+        // child = this.mutationOperator(child);
 
         // REPAIR
         child = this.repairOperator(child);

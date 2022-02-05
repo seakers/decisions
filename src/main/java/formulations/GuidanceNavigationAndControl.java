@@ -112,6 +112,149 @@ public class GuidanceNavigationAndControl{
 
 
 
+    public static JsonArray getProdRootParameters(){
+
+
+        // SENSOR
+        JsonArray sensors = new JsonArray();
+        Smap.addElement(sensors, "s1-1", true);
+        Smap.addElement(sensors, "s2-1", true);
+        Smap.addElement(sensors, "s3-1", true);
+
+        JsonArray sensors1 = new JsonArray();
+        Smap.addElement(sensors1, "s1-2", true);
+        Smap.addElement(sensors1, "s2-2", true);
+        Smap.addElement(sensors1, "s3-2", true);
+
+        JsonArray sensors2 = new JsonArray();
+        Smap.addElement(sensors2, "s1-3", true);
+        Smap.addElement(sensors2, "s2-3", true);
+        Smap.addElement(sensors2, "s3-3", true);
+
+        JsonObject sensor_obj = new JsonObject();
+        sensor_obj.addProperty("active", true);
+        sensor_obj.addProperty("type", "list");
+        sensor_obj.add("elements", sensors.deepCopy());
+
+        JsonObject sensor_obj1 = new JsonObject();
+        sensor_obj1.addProperty("active", true);
+        sensor_obj1.addProperty("type", "list");
+        sensor_obj1.add("elements", sensors1.deepCopy());
+
+        JsonObject sensor_obj2 = new JsonObject();
+        sensor_obj2.addProperty("active", true);
+        sensor_obj2.addProperty("type", "list");
+        sensor_obj2.add("elements", sensors2.deepCopy());
+
+        JsonArray sensor_elements = new JsonArray();
+        sensor_elements.add(sensor_obj.deepCopy());
+        sensor_elements.add(sensor_obj1.deepCopy());
+        sensor_elements.add(sensor_obj2.deepCopy());
+
+        JsonObject sensor_select_obj = new JsonObject();
+        sensor_select_obj.addProperty("child_name", "Num Sensor Selection");
+        sensor_select_obj.addProperty("child_type", "DownSelecting");
+        sensor_select_obj.add("elements", sensor_elements);
+
+
+
+
+
+        // COMPUTER
+        JsonArray computers = new JsonArray();
+        Smap.addElement(computers, "c1-1", true);
+        Smap.addElement(computers, "c2-1", true);
+        Smap.addElement(computers, "c3-1", true);
+
+        JsonArray computers1 = new JsonArray();
+        Smap.addElement(computers1, "c1-2", true);
+        Smap.addElement(computers1, "c2-2", true);
+        Smap.addElement(computers1, "c3-2", true);
+
+        JsonArray computers2 = new JsonArray();
+        Smap.addElement(computers2, "c1-3", true);
+        Smap.addElement(computers2, "c2-3", true);
+        Smap.addElement(computers2, "c3-3", true);
+
+        JsonObject computer_obj = new JsonObject();
+        computer_obj.addProperty("active", true);
+        computer_obj.addProperty("type", "list");
+        computer_obj.add("elements", computers.deepCopy());
+
+        JsonObject computer_obj1 = new JsonObject();
+        computer_obj1.addProperty("active", true);
+        computer_obj1.addProperty("type", "list");
+        computer_obj1.add("elements", computers1.deepCopy());
+
+        JsonObject computer_obj2 = new JsonObject();
+        computer_obj2.addProperty("active", true);
+        computer_obj2.addProperty("type", "list");
+        computer_obj2.add("elements", computers2.deepCopy());
+
+        JsonArray computer_elements = new JsonArray();
+        computer_elements.add(computer_obj.deepCopy());
+        computer_elements.add(computer_obj1.deepCopy());
+        computer_elements.add(computer_obj2.deepCopy());
+
+        JsonObject computer_select_obj = new JsonObject();
+        computer_select_obj.addProperty("child_name", "Num Computer Selection");
+        computer_select_obj.addProperty("child_type", "DownSelecting");
+        computer_select_obj.add("elements", computer_elements);
+
+
+
+        // ACTUATOR
+        JsonArray actuators = new JsonArray();
+        Smap.addElement(actuators, "a1-1", true);
+        Smap.addElement(actuators, "a2-1", true);
+        Smap.addElement(actuators, "a3-1", true);
+
+        JsonArray actuators1 = new JsonArray();
+        Smap.addElement(actuators1, "a1-2", true);
+        Smap.addElement(actuators1, "a2-2", true);
+        Smap.addElement(actuators1, "a3-2", true);
+
+        JsonArray actuators2 = new JsonArray();
+        Smap.addElement(actuators2, "a1-3", true);
+        Smap.addElement(actuators2, "a2-3", true);
+        Smap.addElement(actuators2, "a3-3", true);
+
+        JsonObject actuator_obj = new JsonObject();
+        actuator_obj.addProperty("active", true);
+        actuator_obj.addProperty("type", "list");
+        actuator_obj.add("elements", actuators.deepCopy());
+
+        JsonObject actuator_obj1 = new JsonObject();
+        actuator_obj1.addProperty("active", true);
+        actuator_obj1.addProperty("type", "list");
+        actuator_obj1.add("elements", actuators1.deepCopy());
+
+        JsonObject actuator_obj2 = new JsonObject();
+        actuator_obj2.addProperty("active", true);
+        actuator_obj2.addProperty("type", "list");
+        actuator_obj2.add("elements", actuators2.deepCopy());
+
+        JsonArray actuator_elements = new JsonArray();
+        actuator_elements.add(actuator_obj.deepCopy());
+        actuator_elements.add(actuator_obj1.deepCopy());
+        actuator_elements.add(actuator_obj2.deepCopy());
+
+        JsonObject actuator_select_obj = new JsonObject();
+        actuator_select_obj.addProperty("child_name", "Num Actuator Selection");
+        actuator_select_obj.addProperty("child_type", "DownSelecting");
+        actuator_select_obj.add("elements", actuator_elements);
+
+
+
+        JsonArray final_ary = new JsonArray();
+        final_ary.add(sensor_select_obj);
+        final_ary.add(computer_select_obj);
+        final_ary.add(actuator_select_obj);
+
+
+        return final_ary;
+    }
+
 
 
 
