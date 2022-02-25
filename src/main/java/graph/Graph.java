@@ -1,9 +1,7 @@
 package graph;
 
 
-import app.App;
 import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import graph.decision.*;
 import graph.neo4j.DatabaseClient;
 import graph.utils.Design;
@@ -16,7 +14,6 @@ import java.util.Random;
 public class Graph {
 
     private DatabaseClient      client;
-    private ArrayList<Record>   breadthFirstNodes;
     private ArrayList<Record>   depthFirstNodes;
     private ArrayList<Record>   topologicalNodes;
     private HashMap<String, Decision> decisions;
@@ -27,6 +24,11 @@ public class Graph {
     private boolean isEnumerated;
 
     private String mutationType;
+
+    private String problem;
+    private String formulation;
+
+
 
 
 //     ____        _ _     _
@@ -39,19 +41,19 @@ public class Graph {
     public static class Builder {
 
         private DatabaseClient            client;
-        private ArrayList<Record>         breadthFirstNodes;
         private ArrayList<Record>         depthFirstNodes;
         private ArrayList<Record>         topologicalNodes;
         private HashMap<String, Decision> decisions;
         private Decision                  root;
         private Decision                  end_node;
         private String                    problem;
+        private String                    formulation;
         private String                    mutationType;
 
-        public Builder(DatabaseClient client, String problem, boolean reset_nodes, boolean reset_graphs) {
+        public Builder(DatabaseClient client, String formulation, String problem, boolean reset_nodes, boolean reset_graphs) {
             this.client  = client;
             this.problem = problem;
-            this.breadthFirstNodes = new ArrayList<>();
+            this.formulation = formulation;
             this.depthFirstNodes   = new ArrayList<>();
             this.topologicalNodes  = new ArrayList<>();
             this.decisions         = new HashMap<>();
@@ -71,39 +73,33 @@ public class Graph {
 
         public Builder indexGraph(String graph_type){
 
-            if(graph_type.equals("Decadal")){
-                this.client.indexClimateCentricGeneric();
+            if(graph_type.equals("EOSS")){
+                this.client.indexEOSS();
             }
-            else if(graph_type.equals("GNC")){
-                this.client.indexGNCGeneric();
-            }
-            else if(graph_type.equals("SMAP")){
-                this.client.indexSMAPAssigning();
-            }
-            else if(graph_type.equals("GNC_TEST")){
-                this.client.indexGNCTest();
-            }
+//            else if(graph_type.equals("GNC")){
+//                this.client.indexGNCFull();
+//            }
+//            else if(graph_type.equals("GNC_SMALL")){
+//                this.client.indexGNCSmall();
+//            }
+//            else if(graph_type.equals("SMAP")){
+//                this.client.indexSMAP();
+//            }
 
-            return this;
-        }
-
-        public Builder buildBreadthFirstOrdering(String graphName){
-            String node_labels       = "['Decision', 'Root', 'Design']";
-            String dependency_labels = "['DEPENDENCY', 'ROOT_DEPENDENCY', 'FINAL_DEPENDENCY']";
-            this.client.buildGenericGraph(graphName, node_labels, dependency_labels);
-            this.breadthFirstNodes   = this.client.genericTraversal(graphName, "bfs");
-            return this;
-        }
-
-        public Builder buildDepthFirstOrdering(String graphName){
-            String node_labels       = "['Decision', 'Root', 'Design']";
-            String dependency_labels = "['DEPENDENCY', 'ROOT_DEPENDENCY', 'FINAL_DEPENDENCY']";
-            this.client.buildGenericGraph(graphName, node_labels, dependency_labels);
-            this.depthFirstNodes     = this.client.genericTraversal(graphName, "dfs");
             return this;
         }
 
         public Builder buildTopologicalOrdering(){
+
+            // --> 1. Define node and edge labels
+            String node_labels       = "['Decision', 'Root', 'Design']";
+            String dependency_labels = "['DEPENDENCY', 'ROOT_DEPENDENCY', 'FINAL_DEPENDENCY']";
+
+            // --> 2. Build depth first ordering
+            this.client.buildGDSGraph(node_labels, dependency_labels);
+            this.depthFirstNodes = this.client.genericTraversal("dfs");
+
+            // --> 3. Build topological ordering
             this.topologicalNodes = this.client.buildTopologicalOrdering(this.depthFirstNodes);
             System.out.println("\n----- TOPOLOGICAL ORDER -----");
             for(Record node: this.topologicalNodes){
@@ -229,7 +225,6 @@ public class Graph {
 
             Graph build             = new Graph();
             build.client            = this.client;
-            build.breadthFirstNodes = this.breadthFirstNodes;
             build.depthFirstNodes   = this.depthFirstNodes;
             build.topologicalNodes  = this.topologicalNodes;
             build.decisions         = this.decisions;
@@ -238,6 +233,8 @@ public class Graph {
             build.numDesigns        = 0;
             build.isEnumerated      = false;
             build.mutationType      = this.mutationType;
+            build.problem = problem;
+            build.formulation = formulation;
             return build;
         }
     }

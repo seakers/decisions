@@ -42,7 +42,6 @@ public class Decision {
 
     // DECISION
     protected JsonArray                 decisions;
-    protected JsonArray                 dependencies;
 
     // ROOT
     protected JsonArray                 parameters;
@@ -84,7 +83,6 @@ public class Decision {
         protected HashMap<String, Decision> decision_nodes;
         protected Gson                      gson;
         protected JsonArray                 decisions;
-        protected JsonArray                 dependencies;
         protected JsonArray                 parameters;
         protected JsonArray                 designs;
         protected Random                    rand;
@@ -97,7 +95,6 @@ public class Decision {
             this.decision_nodes = new HashMap<>();
             this.gson           = new GsonBuilder().setPrettyPrinting().create();
             this.decisions      = new JsonArray();
-            this.dependencies   = new JsonArray();
             this.parameters     = new JsonArray();
             this.designs        = new JsonArray();
             this.rand           = new Random();
@@ -124,35 +121,31 @@ public class Decision {
         }
 
         public Builder setChildren(){
-            this.children = this.client.getNodeChildren(this.node_name, this.node_type);
+            this.children = this.client.getNodeChildren(this.node_name);
             return this;
         }
 
         public Builder setDecisions(){
-            ArrayList<Record> decision_list = this.client.getNodeParameter(this.node_name, this.node_type, "decisions");
-            String            decision_str  = decision_list.get(0).get("n.decisions").asString();
-            this.decisions                  = JsonParser.parseString(decision_str).getAsJsonArray();
-            return this;
-        }
-
-        public Builder setDependencies(){
-            ArrayList<Record> dependency_list = this.client.getNodeParameter(this.node_name, this.node_type, "dependencies");
-            String            dependency_str  = dependency_list.get(0).get("n.dependencies").asString();
-            this.dependencies                 = JsonParser.parseString(dependency_str).getAsJsonArray();
+//            ArrayList<Record> decision_list = this.client.getNodeParameter(this.node_name, "decisions");
+//            String            decision_str  = decision_list.get(0).get("n.decisions").asString();
+//            this.decisions                  = JsonParser.parseString(decision_str).getAsJsonArray();
+            this.decisions = this.client.getNodeProblemInfo(this.node_name);
             return this;
         }
 
         public Builder setParameters(){
-            ArrayList<Record> params     = this.client.getNodeParameter(this.node_name, this.node_type, "initial_params");
-            String            params_str = params.get(0).get("n.initial_params").asString();
-            this.parameters              = JsonParser.parseString(params_str).getAsJsonArray();
+//            ArrayList<Record> params     = this.client.getNodeParameter(this.node_name, "initial_params");
+//            String            params_str = params.get(0).get("n.initial_params").asString();
+//            this.parameters              = JsonParser.parseString(params_str).getAsJsonArray();
+            this.parameters = this.client.getNodeProblemInfo(this.node_name);
             return this;
         }
 
         public Builder setDesigns(){
-            ArrayList<Record> designs     = this.client.getNodeParameter(this.node_name, this.node_type, "designs");
-            String            designs_str = designs.get(0).get("n.designs").asString();
-            this.designs                  = JsonParser.parseString(designs_str).getAsJsonArray();
+//            ArrayList<Record> designs     = this.client.getNodeParameter(this.node_name, "designs");
+//            String            designs_str = designs.get(0).get("n.designs").asString();
+//            this.designs                  = JsonParser.parseString(designs_str).getAsJsonArray();
+            this.designs = this.client.getNodeProblemInfo(this.node_name);
             return this;
         }
 
@@ -168,7 +161,6 @@ public class Decision {
         System.out.println("----- children: " + this.children);
         System.out.println("--- parameters: " + this.gson.toJson(this.parameters));
         System.out.println("---- decisions: " + this.gson.toJson(this.decisions));
-//        System.out.println("- dependencies: " + this.gson.toJson(this.dependencies));
         System.out.println("------ designs: " + this.gson.toJson(this.designs));
         System.out.println("--------------------------\n");
     }
@@ -184,7 +176,6 @@ public class Decision {
         this.gson           = builder.gson;
         this.parameters     = builder.parameters;
         this.decisions      = builder.decisions;
-        this.dependencies   = builder.dependencies;
         this.designs        = builder.designs;
         this.rand           = builder.rand;
         this.last_decision  = new JsonArray();
@@ -351,12 +342,13 @@ public class Decision {
     }
 
     protected void updateNodeDecisions(){
-        this.client.setNodeJsonParameter(this.node_name, this.node_type, "decisions", this.decisions);
+        this.client.updateNodeProblemInfo(this.node_name, this.decisions);
     }
 
     protected void updateFinalDesigns(){
-        this.client.setNodeJsonParameter(this.node_name, this.node_type, "designs", this.decisions);
+        this.client.updateNodeProblemInfo(this.node_name, this.decisions);
     }
+
 
     protected int getConstantDecisionDepth(JsonObject design){
 

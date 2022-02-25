@@ -1,4 +1,4 @@
-package formulations;
+package graph.formulations;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -323,7 +323,12 @@ public class Decadal{
         return final_ary;
     }
 
-    public static JsonArray getRootParameters(){
+
+
+
+
+
+    public static JsonObject getRootParameters(String problem){
 
         JsonObject inst1 = new JsonObject();
         inst1.addProperty("active", Boolean.TRUE);
@@ -366,7 +371,14 @@ public class Decadal{
 
         JsonArray final_ary = new JsonArray();
         final_ary.add(down_select_obj);
-        return final_ary;
+
+
+
+        JsonObject problems_obj = new JsonObject();
+        problems_obj.add(problem, final_ary);
+
+
+        return problems_obj;
     }
 
 

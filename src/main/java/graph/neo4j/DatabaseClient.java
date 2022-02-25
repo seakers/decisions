@@ -2,13 +2,15 @@ package graph.neo4j;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
-import formulations.Smap;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import graph.formulations.Smap;
 import graph.Decision;
 import graph.Graph;
 import graph.sort.Topological;
 import org.neo4j.driver.*;
-import formulations.Decadal;
-import formulations.GuidanceNavigationAndControl;
+import graph.formulations.Decadal;
+import graph.formulations.GuidanceNavigationAndControl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,27 +19,35 @@ import java.util.Stack;
 public class DatabaseClient {
 
     public Driver  driver;
-    public String  problem;
     public Gson    gson;
+    public String  formulation;
+    public String  problem;
+
 
     public static class Builder {
 
         public String uri;
         public String user;
         public String password;
+        public String formulation;
         public String problem;
 
         public Builder(String uri) {
             this.uri = uri;
         }
 
-        public Builder credentials(String user, String password){
+        public Builder setCredentials(String user, String password){
             this.user     = user;
             this.password = password;
             return this;
         }
 
-        public Builder problem(String problem){
+        public Builder setFormulation(String formulation){
+            this.formulation = formulation;
+            return this;
+        }
+
+        public Builder setProblem(String problem){
             this.problem = problem;
             return this;
         }
@@ -45,6 +55,7 @@ public class DatabaseClient {
         public DatabaseClient build(){
             DatabaseClient build = new DatabaseClient();
             build.driver         = GraphDatabase.driver(this.uri, AuthTokens.basic(this.user, this.password));
+            build.formulation    = this.formulation;
             build.problem        = this.problem;
             build.gson           = new Gson();
             return build;
@@ -60,13 +71,36 @@ public class DatabaseClient {
 //     \___\_\\__,_|\___|_|  |_|\___||___/
 
 
+    public JsonArray getNodeProblemInfo(String node_name){
+
+        // --> 1. Get all problem info
+        ArrayList<Record> problem_list = this.getNodeParameter(node_name, "problems");
+        String            problem_str  = problem_list.get(0).get("n.problems").asString();
+        JsonObject        problems     = JsonParser.parseString(problem_str).getAsJsonObject();
+
+        // --> 2. If problem info not found, index empty problem info
+        if(!problems.has(this.problem)){
+            JsonArray elements = new JsonArray();
+            this.updateNodeProblemInfo(node_name, elements);
+            return elements;
+        }
+
+        // --> 3. Else, return current problem info
+        return problems.getAsJsonArray("elements");
+    }
+
+
+    /*
+        ---> Input: node name (e.x. Instrument Selection)
+        --> Output: node parents (parameters: name, type)
+     */
     public ArrayList<Record> getNodeParents(String nodeName){
         Session session = this.driver.session();
         return  session.writeTransaction( tx -> nodeParentQuery(tx, nodeName));
     }
     private ArrayList<Record> nodeParentQuery(final Transaction tx, final String nodeName){
         Result query = tx.run(
-                "MATCH (m)-->(dec) " +
+                "MATCH (m:" + this.formulation + ")-->(dec) " +
                         "WHERE dec.name = $nodeName " +
                         "RETURN m.name, m.type ",
                 Values.parameters("nodeName", nodeName)
@@ -80,15 +114,18 @@ public class DatabaseClient {
         return nodes;
     }
 
-
-    public ArrayList<Record> getNodeParameter(String node_name, String node_type, String parameter){
+    /*
+        ---> Input: node name, node type, requested parameter
+        --> Output: node parameter value
+     */
+    public ArrayList<Record> getNodeParameter(String node_name, String parameter){
         Session session = this.driver.session();
-        return  session.writeTransaction( tx -> parameterQuery(tx, node_name, node_type, parameter));
+        return  session.writeTransaction( tx -> parameterQuery(tx, node_name, parameter));
     }
-    private ArrayList<Record> parameterQuery(final Transaction tx, final String node_name, final String node_type, final String parameter_name){
-        String node_str   = " MATCH (n:" + this.problem + ":" + node_type + ") ";
+    private ArrayList<Record> parameterQuery(final Transaction tx, final String node_name, final String parameter){
+        String node_str   = " MATCH (n:" + this.formulation + ") ";
         String where_str  = " WHERE n.name = \"" + node_name + "\"  ";
-        String return_str = " RETURN n." + parameter_name;
+        String return_str = " RETURN n." + parameter;
 
         Result query = tx.run(
                 node_str + where_str + return_str,
@@ -102,13 +139,16 @@ public class DatabaseClient {
         return items;
     }
 
-
-    public ArrayList<Record> getNodeChildren(String node_name, String node_type){
+    /*
+        ---> Input: node name, node type
+        --> Output: node children
+     */
+    public ArrayList<Record> getNodeChildren(String node_name){
         Session session = this.driver.session();
-        return  session.writeTransaction( tx -> childQuery(tx, node_name, node_type));
+        return  session.writeTransaction( tx -> childQuery(tx, node_name));
     }
-    private ArrayList<Record> childQuery(final Transaction tx, final String node_name, final String node_type){
-        String node_str  = "MATCH (m:" + this.problem + ":" + node_type + ")-->(dec)";
+    private ArrayList<Record> childQuery(final Transaction tx, final String node_name){
+        String node_str  = "MATCH (m:" + this.formulation + ")-->(dec)";
 
         Result query = tx.run(
                 node_str +
@@ -127,13 +167,13 @@ public class DatabaseClient {
 
     public ArrayList<Record> getRelationshipType(Decision parent, Decision child){
         Session session = this.driver.session();
-        return session.writeTransaction( tx -> relatshipQuery(tx, parent.node_type, parent.node_name, child.node_type, child.node_name));
+        return session.writeTransaction( tx -> relationshipQuery(tx, parent.node_name, child.node_name));
     }
-    private ArrayList<Record> relatshipQuery(final Transaction tx, String p_type, String p_name, String c_type, String c_name){
-        String relationship_str = "MATCH (m:" + this.problem + ":" + p_type + " { name: $p_name})-[r]->(n:" + this.problem + ":" + c_type + " { name: $c_name})";
+    private ArrayList<Record> relationshipQuery(final Transaction tx, String parent_name, String child_name){
+        String relationship_str = "MATCH (m:" + this.formulation + " { name: $parent_name})-[r]->(n:" + this.formulation + " { name: $child_name})";
         Result query = tx.run(
                 relationship_str + "RETURN (r.type)",
-                Values.parameters("p_name", p_name, "c_name", c_name)
+                Values.parameters("parent_name", parent_name, "child_name", child_name)
         );
         ArrayList<Record> items = new ArrayList<>();
         while(query.hasNext()){
@@ -145,13 +185,13 @@ public class DatabaseClient {
 
     public ArrayList<Record> getRelationshipAttribute(Decision parent, Decision child, String attribute){
         Session session = this.driver.session();
-        return session.writeTransaction( tx -> relationshipAttributeQuery(tx, parent.node_type, parent.node_name, child.node_type, child.node_name, attribute));
+        return session.writeTransaction( tx -> relationshipAttributeQuery(tx, parent.node_name, child.node_name, attribute));
     }
-    private ArrayList<Record> relationshipAttributeQuery(final Transaction tx, String p_type, String p_name, String c_type, String c_name, String attribute){
-        String relationship_str = "MATCH (m:" + this.problem + ":" + p_type + " { name: $p_name})-[r]->(n:" + this.problem + ":" + c_type + " { name: $c_name})";
+    private ArrayList<Record> relationshipAttributeQuery(final Transaction tx, String parent_name, String child_name, String attribute){
+        String relationship_str = "MATCH (m:" + this.formulation + " { name: $parent_name})-[r]->(n:" + this.formulation + " { name: $child_name})";
         Result query = tx.run(
                 relationship_str + "RETURN (r."+attribute+")",
-                Values.parameters("p_name", p_name, "c_name", c_name)
+                Values.parameters("parent_name", parent_name, "child_name", child_name)
         );
         ArrayList<Record> items = new ArrayList<>();
         while(query.hasNext()){
@@ -169,7 +209,7 @@ public class DatabaseClient {
         return session.writeTransaction( tx -> recordQuery(tx, node_name));
     }
     private ArrayList<Record> recordQuery(final Transaction tx, String node_name){
-        String node_str   = " MATCH (names:" + this.problem + ") ";
+        String node_str   = " MATCH (names:" + this.formulation + ") ";
         String where_str  = " WHERE names.name = \"" + node_name + "\"  ";
         Result query = tx.run(
                 node_str + where_str + " RETURN names.name, names.type",
@@ -192,12 +232,53 @@ public class DatabaseClient {
 //    | |  | | |_| | || (_| | |_| | (_) | | | \__ \
 //    |_|  |_|\__,_|\__\__,_|\__|_|\___/|_| |_|___/
 
-    public ArrayList<Record> setNodeJsonParameter(String node_name, String node_type, String parameter, JsonArray elements){
-        Session session = this.driver.session();
-        return  session.writeTransaction( tx -> nodeParameterMutation(tx, node_name, node_type, parameter, elements));
+
+    public ArrayList<Record> updateNodeProblemInfo(String node_name, JsonArray elements){
+
+        // --> 1. Get current problem info from node
+        ArrayList<Record> problem_list = this.getNodeParameter(node_name, "problems");
+        String            problem_str  = problem_list.get(0).get("n.problems").asString();
+        JsonObject        problems     = JsonParser.parseString(problem_str).getAsJsonObject();
+
+        // --> 2. Update the current problem info in the JsonObject
+        problems.add(this.problem, elements);
+
+        // --> 3. Commit JsonObject to node
+        return this.setNodeParameterJsonObject(node_name, "problems", problems);
     }
-    private ArrayList<Record> nodeParameterMutation(final Transaction tx, String node_name, String node_type, String parameter, JsonArray elements){
-        String node_str     = " MATCH (n:" + this.problem + ":" + node_type + ") ";
+
+
+
+    public ArrayList<Record> setNodeParameterJsonObject(String node_name, String parameter, JsonObject elements){
+        Session session = this.driver.session();
+        return  session.writeTransaction( tx -> nodeParameterMutationObject(tx, node_name, parameter, elements));
+    }
+    private ArrayList<Record> nodeParameterMutationObject(final Transaction tx, String node_name, String parameter, JsonObject elements){
+        String node_str     = " MATCH (n:" + this.formulation + ") ";
+        String where_str    = " WHERE n.name = \"" + node_name + "\"  ";
+        String set_str      = " SET n." + parameter + " = $elements ";
+        String elements_str = this.gson.toJson(elements);
+        Result query = tx.run(
+                node_str +
+                        where_str +
+                        set_str +
+                        "RETURN n",
+                Values.parameters("elements", elements_str)
+        );
+        ArrayList<Record> nodes = new ArrayList<>();
+        while(query.hasNext()){
+            Record node = query.next();
+            nodes.add(node);
+        }
+        return nodes;
+    }
+
+    public ArrayList<Record> setNodeParameterJsonArray(String node_name, String parameter, JsonArray elements){
+        Session session = this.driver.session();
+        return  session.writeTransaction( tx -> nodeParameterMutationArray(tx, node_name, parameter, elements));
+    }
+    private ArrayList<Record> nodeParameterMutationArray(final Transaction tx, String node_name, String parameter, JsonArray elements){
+        String node_str     = " MATCH (n:" + this.formulation + ") ";
         String where_str    = " WHERE n.name = \"" + node_name + "\"  ";
         String set_str      = " SET n." + parameter + " = $elements ";
         String elements_str = this.gson.toJson(elements);
@@ -229,12 +310,12 @@ public class DatabaseClient {
     /*
         Traversal: bfs (breadth first search) | dfs (depth first search)
      */
-    public ArrayList<Record> genericTraversal(String graphName, String traversal){
+    public ArrayList<Record> genericTraversal(String traversal){
         Session session = this.driver.session();
-        return  session.writeTransaction( tx -> traversalQuery(tx, graphName, traversal));
+        return  session.writeTransaction( tx -> traversalQuery(tx, traversal));
     }
-    private ArrayList<Record> traversalQuery(final Transaction tx, final String graphName, final String traversal){
-        String root          = "MATCH (a:" + this.problem + ":Root {name: \"Start\"}) ";
+    private ArrayList<Record> traversalQuery(final Transaction tx, final String traversal){
+        String root          = "MATCH (a:" + this.formulation + ":Root) ";
         String traversalCall = "CALL gds.alpha." + traversal + ".stream($graphName, {startNode: startNode}) ";
 
         Result query = tx.run(
@@ -244,7 +325,7 @@ public class DatabaseClient {
                         "YIELD path " +
                         "UNWIND [ n in nodes(path) | n ] AS names " +
                         "RETURN names.name, names.type",
-                Values.parameters("rootName", this.problem, "graphName", graphName)
+                Values.parameters("graphName", this.problem)
         );
         ArrayList<Record> nodes = new ArrayList<>();
         System.out.println("\n--------- TRAVERSAL: " + traversal + " ---------");
@@ -289,7 +370,7 @@ public class DatabaseClient {
         String  node_name = Graph.getNodeName(node);
         String  node_type = Graph.getNodeType(node);
         Integer node_id   = node_map_str.get(node_name);
-        ArrayList<Record> children = this.getNodeChildren(node_name, node_type);
+        ArrayList<Record> children = this.getNodeChildren(node_name);
         for(Record child: children){
             Integer child_id = node_map_str.get(Graph.getNodeName(child, "dec.name"));
             sort.addEdge(node_id, child_id);
@@ -306,24 +387,27 @@ public class DatabaseClient {
 //                  | |
 //                  |_|
 
-    public void buildGenericGraph(String graphName, String node_labels, String dependency_labels){
-        Result result = this.driver.session().writeTransaction( tx -> genericGraphQuery(tx, graphName, node_labels, dependency_labels));
+    public void buildGDSGraph(String node_labels, String dependency_labels){
+        Result result = this.driver.session().writeTransaction( tx -> gdsGraphQuery(tx, node_labels, dependency_labels));
     }
-    private Result genericGraphQuery(final Transaction tx, final String graphName, final String node_labels, final String dependency_labels){
-        // --------> node_labels: ['Decision', 'Root']
+    private Result gdsGraphQuery(final Transaction tx, final String node_labels, final String dependency_labels){
+        // --------> node_labels: ['Decision', 'Root', 'Design']
         // --> dependency_labels: ['DEPENDENCY', 'ROOT_DEPENDENCY', 'FINAL_DEPENDENCY']
         String call = "CALL gds.graph.create($graphName, " + node_labels + ", " + dependency_labels + ")";
-        return tx.run(call, Values.parameters("graphName", graphName));
+        System.out.println("--> " + call);
+        return tx.run(call, Values.parameters("graphName", this.problem));
     }
 
 
     public void obliterateGraphs(){
-        System.out.println("---> Obliterating graphs");
+        System.out.println("---> Obliterating graph: " + this.problem + " (if exists)");
         Session            session = this.driver.session();
         ArrayList<String>  graphs  = session.writeTransaction( tx -> listGraphs(tx));
         for(String graph : graphs){
-            System.out.println("--> Deleting graph: " + graph);
-            session.writeTransaction( tx -> obliterateGraph(tx, graph));
+            if(graph.equals(this.problem)){
+                System.out.println("--> Deleting graph: " + graph);
+                session.writeTransaction( tx -> obliterateGraph(tx, graph));
+            }
         }
     }
     private ArrayList<String> listGraphs(final Transaction tx){
@@ -343,11 +427,14 @@ public class DatabaseClient {
         );
     }
 
+
+
+
     public void obliterateNodes(){
         this.driver.session().writeTransaction( tx -> obliterateNode(tx));
     }
     private Result obliterateNode(final Transaction tx){
-        return tx.run("MATCH (n) DETACH DELETE n");
+        return tx.run("MATCH (n:"+this.formulation+") DETACH DELETE n");
     }
 
     public void closeConnection(){
@@ -356,143 +443,30 @@ public class DatabaseClient {
 
 
 
-//   _____                     _
-//  / ____|                   | |
-// | |  __  _ __  __ _  _ __  | |__   ___
-// | | |_ || '__|/ _` || '_ \ | '_ \ / __|
-// | |__| || |  | (_| || |_) || | | |\__ \
-//  \_____||_|   \__,_|| .__/ |_| |_||___/
-//                     | |
-//                     |_|
+//     ______                              _         _    _
+//    |  ____|                            | |       | |  (_)
+//    | |__  ___   _ __  _ __ ___   _   _ | |  __ _ | |_  _   ___   _ __   ___
+//    |  __|/ _ \ | '__|| '_ ` _ \ | | | || | / _` || __|| | / _ \ | '_ \ / __|
+//    | |  | (_) || |   | | | | | || |_| || || (_| || |_ | || (_) || | | |\__ \
+//    |_|   \___/ |_|   |_| |_| |_| \__,_||_| \__,_| \__||_| \___/ |_| |_||___/
 
 
-    public void indexGNCTest(){
+    /*
+        SMAP Formulation
+        - Three decisions: instrument selection, orbit selection, instrument to orbit partitioning
+     */
+    public void indexSMAP(){
         try (Session session1 = this.driver.session()){
 
-            String problem         = this.problem;
-            String root_parameters = this.gson.toJson(GuidanceNavigationAndControl.getTestRootParameters());
-
-            // 1. Create nodes
-            session1.writeTransaction( tx -> addGenericRoot(tx, problem, root_parameters));
-
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Num Sensor Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Num Computer Selection"));
-
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Sensor Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Computer Selection"));
-
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Assigning", "Sensor to Computer"));
-
-            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
-
-            // 2. Edges
-
-            // ROOT -> DOWN SELECTING
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Root",
-                            "Start",
-                            "Decision",
-                            "Num Sensor Selection",
-                            "ROOT_DEPENDENCY"
-                    )
-            );
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Root",
-                            "Start",
-                            "Decision",
-                            "Num Computer Selection",
-                            "ROOT_DEPENDENCY"
-                    )
-            );
-
-
-            // DOWN SELECTING -> STANDARD FORM
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
-                            "Num Computer Selection",
-                            "Decision",
-                            "Computer Selection",
-                            "DEPENDENCY"
-                    )
-            );
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
-                            "Num Sensor Selection",
-                            "Decision",
-                            "Sensor Selection",
-                            "DEPENDENCY"
-                    )
-            );
-
-
-
-            // ASSIGNING
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
-                            "Sensor Selection",
-                            "Decision",
-                            "Sensor to Computer",
-                            "DEPENDENCY",
-                            "FROM"
-                    )
-            );
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
-                            "Computer Selection",
-                            "Decision",
-                            "Sensor to Computer",
-                            "DEPENDENCY",
-                            "TO"
-                    )
-            );
-
-
-
-            // FINAL
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
-                            "Sensor to Computer",
-                            "Design",
-                            "Finish",
-                            "FINAL_DEPENDENCY"
-                    )
-            );
-
-
-
-        }
-        catch (Exception e){
-            e.printStackTrace();
-        }
-    }
-
-
-    public void indexSMAPAssigning(){
-        try (Session session1 = this.driver.session()){
-
-            String problem         = this.problem;
+            String problem         = this.formulation;
             String root_parameters = this.gson.toJson(Smap.getRootParameters());
 
             // 1. Create nodes
-            session1.writeTransaction( tx -> addGenericRoot(tx, problem, root_parameters));
+            session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
 
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Orbit Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Instrument Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Assigning", "Instrument to Orbit"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Orbit Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Instrument Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Instrument to Orbit"));
 
             session1.writeTransaction( tx -> addGenericFinal(tx, problem));
 
@@ -502,20 +476,14 @@ public class DatabaseClient {
             // ROOT
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
                             "Root",
-                            "Start",
-                            "Decision",
                             "Orbit Selection",
                             "ROOT_DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
                             "Root",
-                            "Start",
-                            "Decision",
                             "Instrument Selection",
                             "ROOT_DEPENDENCY"
                     )
@@ -524,10 +492,7 @@ public class DatabaseClient {
             // ASSIGNING
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Instrument Selection",
-                            "Decision",
                             "Instrument to Orbit",
                             "DEPENDENCY",
                             "FROM"
@@ -535,10 +500,7 @@ public class DatabaseClient {
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Orbit Selection",
-                            "Decision",
                             "Instrument to Orbit",
                             "DEPENDENCY",
                             "TO"
@@ -548,11 +510,8 @@ public class DatabaseClient {
             // FINAL
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Instrument to Orbit",
                             "Design",
-                            "Finish",
                             "FINAL_DEPENDENCY"
                     )
             );
@@ -563,25 +522,122 @@ public class DatabaseClient {
     }
 
 
-    public void indexGNCGeneric(){
+    /*
+        GNC Formulation
+        - Eight decisions:
+     */
+    public void indexGNCSmall(){
         try (Session session1 = this.driver.session()){
 
-            String problem         = this.problem;
+            String problem         = this.formulation;
+            String root_parameters = this.gson.toJson(GuidanceNavigationAndControl.getTestRootParameters());
+
+            // 1. Create nodes
+            session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
+
+            session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Num Sensor Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Num Computer Selection"));
+
+            session1.writeTransaction( tx -> addGenericDecision(tx, "StandardForm", "Sensor Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "StandardForm", "Computer Selection"));
+
+            session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Sensor to Computer"));
+
+            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
+
+            // 2. Edges
+
+            // ROOT -> DOWN SELECTING
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Root",
+                            "Num Sensor Selection",
+                            "ROOT_DEPENDENCY"
+                    )
+            );
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Root",
+                            "Num Computer Selection",
+                            "ROOT_DEPENDENCY"
+                    )
+            );
+
+
+            // DOWN SELECTING -> STANDARD FORM
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Num Computer Selection",
+                            "Computer Selection",
+                            "DEPENDENCY"
+                    )
+            );
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Num Sensor Selection",
+                            "Sensor Selection",
+                            "DEPENDENCY"
+                    )
+            );
+
+
+
+            // ASSIGNING
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Sensor Selection",
+                            "Sensor to Computer",
+                            "DEPENDENCY",
+                            "FROM"
+                    )
+            );
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Computer Selection",
+                            "Sensor to Computer",
+                            "DEPENDENCY",
+                            "TO"
+                    )
+            );
+
+
+
+            // FINAL
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Sensor to Computer",
+                            "Design",
+                            "FINAL_DEPENDENCY"
+                    )
+            );
+
+
+
+        }
+        catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    public void indexGNCFull(){
+        try (Session session1 = this.driver.session()){
+
+            String problem         = this.formulation;
             String root_parameters = this.gson.toJson(GuidanceNavigationAndControl.getProdRootParameters());
 
             // 1. Create nodes
-            session1.writeTransaction( tx -> addGenericRoot(tx, problem, root_parameters));
+            session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
 
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Num Sensor Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Num Computer Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Num Actuator Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Num Sensor Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Num Computer Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Num Actuator Selection"));
 
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Sensor Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Computer Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "StandardForm", "Actuator Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "StandardForm", "Sensor Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "StandardForm", "Computer Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "StandardForm", "Actuator Selection"));
 
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Assigning", "Sensor to Computer"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Assigning", "Computer to Actuator"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Sensor to Computer"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Computer to Actuator"));
 
             session1.writeTransaction( tx -> addGenericFinal(tx, problem));
 
@@ -590,30 +646,21 @@ public class DatabaseClient {
             // ROOT -> DOWN SELECTING
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
                             "Root",
-                            "Start",
-                            "Decision",
                             "Num Sensor Selection",
                             "ROOT_DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
                             "Root",
-                            "Start",
-                            "Decision",
                             "Num Computer Selection",
                             "ROOT_DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
                             "Root",
-                            "Start",
-                            "Decision",
                             "Num Actuator Selection",
                             "ROOT_DEPENDENCY"
                     )
@@ -623,30 +670,21 @@ public class DatabaseClient {
             // DOWN SELECTION -> STANDARD FORM
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Num Sensor Selection",
-                            "Decision",
                             "Sensor Selection",
                             "DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Num Computer Selection",
-                            "Decision",
                             "Computer Selection",
                             "DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Num Actuator Selection",
-                            "Decision",
                             "Actuator Selection",
                             "DEPENDENCY"
                     )
@@ -655,10 +693,7 @@ public class DatabaseClient {
             // ASSIGNING
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Sensor Selection",
-                            "Decision",
                             "Sensor to Computer",
                             "DEPENDENCY",
                             "FROM"
@@ -666,10 +701,7 @@ public class DatabaseClient {
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Computer Selection",
-                            "Decision",
                             "Sensor to Computer",
                             "DEPENDENCY",
                             "TO"
@@ -679,10 +711,7 @@ public class DatabaseClient {
 
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Computer Selection",
-                            "Decision",
                             "Computer to Actuator",
                             "DEPENDENCY",
                             "FROM"
@@ -690,10 +719,7 @@ public class DatabaseClient {
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Actuator Selection",
-                            "Decision",
                             "Computer to Actuator",
                             "DEPENDENCY",
                             "TO"
@@ -704,21 +730,15 @@ public class DatabaseClient {
             // FINAL
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Sensor to Computer",
                             "Design",
-                            "Finish",
                             "FINAL_DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Computer to Actuator",
                             "Design",
-                            "Finish",
                             "FINAL_DEPENDENCY"
                     )
             );
@@ -727,88 +747,52 @@ public class DatabaseClient {
     }
 
 
-    public void indexClimateCentricGeneric(){
+    /*
+        EOSS Formulation
+        - Three decisions: instrument selection, instrument partitioning, satellite permuting
+     */
+    public void indexEOSS(){
         try (Session session1 = this.driver.session()){
 
-            String problem         = this.problem;
-            String root_parameters = this.gson.toJson(Decadal.getRootParameters());
-            // String root_parameters = this.gson.toJson(Decadal.getBigRootParameters());
-//            String root_parameters = this.gson.toJson(Decadal.get2007Parameters());
+            String problem         = this.formulation;
+            String root_parameters = this.gson.toJson(Decadal.getRootParameters(this.problem));
 
             // 1. Create nodes
-            session1.writeTransaction( tx -> addGenericRoot(tx, problem, root_parameters));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "DownSelecting", "Instrument Selection"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Partitioning", "Instrument Partitioning"));
-            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Permuting", "Satellite Scheduling"));
+            session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Instrument Selection"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "Partitioning", "Instrument Partitioning"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "Permuting", "Satellite Scheduling"));
             session1.writeTransaction( tx -> addGenericFinal(tx, problem));
-
-            // TEST
-//            session1.writeTransaction( tx -> addGenericDecision(tx, problem, "Permuting", "Satellite Scheduling2"));
 
             // 2. Create dependencies
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
                             "Root",
-                            "Start",
-                            "Decision",
                             "Instrument Selection",
                             "ROOT_DEPENDENCY"
                             )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Instrument Selection",
-                            "Decision",
                             "Instrument Partitioning",
                             "DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Instrument Partitioning",
-                            "Decision",
                             "Satellite Scheduling",
                             "DEPENDENCY"
                     )
             );
             session1.writeTransaction(
                     tx -> addGenericDependency(tx,
-                            problem,
-                            "Decision",
                             "Satellite Scheduling",
                             "Design",
-                            "Finish",
                             "FINAL_DEPENDENCY"
                     )
             );
-
-            // TEST
-//            session1.writeTransaction(
-//                    tx -> addGenericDependency(tx,
-//                            problem,
-//                            "Decision",
-//                            "Instrument Partitioning",
-//                            "Decision",
-//                            "Satellite Scheduling2",
-//                            "DEPENDENCY"
-//                    )
-//            );
-//            session1.writeTransaction(
-//                    tx -> addGenericDependency(tx,
-//                            problem,
-//                            "Decision",
-//                            "Satellite Scheduling2",
-//                            "Design",
-//                            problem,
-//                            "FINAL_DEPENDENCY"
-//                    )
-//            );
-
         }
     }
 
@@ -818,102 +802,81 @@ public class DatabaseClient {
 
 
 
-    private Result addGenericRoot(final Transaction tx, final String problem, final String deps_str){
+    private Result addGenericRoot(final Transaction tx, final String problems_str){
 
-        String query = "CREATE (n:" + problem + ":Root {name: \"Start\", type: $type, initial_params: $deps_str})";
-        return tx.run(query, Values.parameters("problem", problem, "type", "Root", "deps_str", deps_str));
+        String query = "CREATE (n:" + this.formulation + ":Root {name: \"Root\", type: \"Root\", problems: $problems_str})";
+        return tx.run(query, Values.parameters("problems_str", problems_str));
     }
 
-    private Result addGenericDecision(final Transaction tx, final String problem, final String decision_type, final String node_name){
-        JsonArray decisions     = new JsonArray();
-        JsonArray dependencies  = new JsonArray();
+    private Result addGenericDecision(final Transaction tx, final String decision_type, final String node_name){
+        JsonObject problems_info = new JsonObject();
+        problems_info.add(this.problem, new JsonArray());
+        String problems_str    = this.gson.toJson(problems_info);
 
-        String decisions_str    = this.gson.toJson(decisions);
-        String dependencies_str = this.gson.toJson(dependencies);
-
-//        String query = "CREATE (n:" + problem + ":Decision:" + decision_type + " {name: $decision_desc, type: $decision_type, decisions: $decisions_str, dependencies: $dependencies_str})";
-        String query = "CREATE (n:" + problem + ":Decision:" + decision_type + " {name: $decision_desc, type: $decision_type, decisions: $decisions_str})";
-        return tx.run(query, Values.parameters("decision_type", decision_type, "decision_desc", node_name, "decisions_str", decisions_str, "dependencies_str", dependencies_str));
+        String query = "CREATE (n:" + this.formulation + ":Decision {name: $node_name, type: $decision_type, problems: $problems_str})";
+        return tx.run(query, Values.parameters("node_name", node_name, "decision_type", decision_type,  "problems_str", problems_str));
     }
 
     private Result addGenericFinal(final Transaction tx, final String problem){
-        JsonArray designs        = new JsonArray();
-        String    designs_str    = this.gson.toJson(designs);
+        JsonObject problems_info = new JsonObject();
+        problems_info.add(this.problem, new JsonArray());
+        String problems_str    = this.gson.toJson(problems_info);
 
-//        String query = "CREATE (n:" + problem + ":Design {name: $problem, type: $type, designs: $designs_str})";
-        String query = "CREATE (n:" + problem + ":Design {name: \"Finish\", type: $type, designs: $designs_str})";
-        return tx.run(query, Values.parameters("problem", problem, "type", "Design", "designs_str", designs_str));
+        String query = "CREATE (n:" + problem + ":Design {name: \"Design\", type: \"Design\", problems: $problems_str})";
+        return tx.run(query, Values.parameters("problem", problem, "problems_str", problems_str));
     }
 
+
     private Result addGenericDependency(final Transaction tx,
-                                        final String problem,
-                                        final String parent_label,
                                         final String parent_name,
-                                        final String child_label,
                                         final String child_name,
                                         final String dependency_name
     ){
         String rel_type = "";
-        String parent   = "MATCH  (parent:" + problem + ":" + parent_label + " {name: $parent_name}) ";
-        String child    = "MATCH  (child:"  + problem + ":" + child_label  + " {name: $child_name} ) ";
+        String parent   = "MATCH  (parent:" + this.formulation + " {name: $parent_name}) ";
+        String child    = "MATCH  (child:"  + this.formulation + " {name: $child_name} ) ";
         String edge     = "CREATE (parent)-[:" + dependency_name + " { type: $rel_type}]->(child)";
 
         return tx.run(
                 parent + child + edge,
                 Values.parameters(
-                        "problem", problem,
-                        "parent_label", parent_label,
                         "parent_name", parent_name,
-                        "child_label", child_label,
                         "child_name", child_name,
-                        "dependency_name", dependency_name,
                         "rel_type", rel_type
                 )
         );
     }
 
     private Result addGenericDependency(final Transaction tx,
-                                            final String problem,
-                                            final String parent_label,
                                             final String parent_name,
-                                            final String child_label,
                                             final String child_name,
                                             final String dependency_name,
                                             final String rel_type
     ){
-        String parent = "MATCH  (parent:" + problem + ":" + parent_label + " {name: $parent_name}) ";
-        String child  = "MATCH  (child:"  + problem + ":" + child_label  + " {name: $child_name} ) ";
+        String parent   = "MATCH  (parent:" + this.formulation + " {name: $parent_name}) ";
+        String child    = "MATCH  (child:"  + this.formulation + " {name: $child_name} ) ";
         String edge   = "CREATE (parent)-[:" + dependency_name + " { type: $rel_type}]->(child)";
 
         return tx.run(
                 parent + child + edge,
                 Values.parameters(
-                        "problem", problem,
-                        "parent_label", parent_label,
                         "parent_name", parent_name,
-                        "child_label", child_label,
                         "child_name", child_name,
-                        "dependency_name", dependency_name,
                         "rel_type", rel_type
                 )
         );
     }
 
 
-
-
     private Result addGenericDependency(final Transaction tx,
-                                        final String problem,
-                                        final String parent_label,
                                         final String parent_name,
-                                        final String child_label,
                                         final String child_name,
                                         final String dependency_name,
                                         final String rel_type,
                                         final HashMap<String, String> relationship_key_values
     ){
-        String parent = "MATCH  (parent:" + problem + ":" + parent_label + " {name: $parent_name}) ";
-        String child  = "MATCH  (child:"  + problem + ":" + child_label  + " {name: $child_name} ) ";
+        String parent   = "MATCH  (parent:" + this.formulation + " {name: $parent_name}) ";
+        String child    = "MATCH  (child:"  + this.formulation + " {name: $child_name} ) ";
 
         String map_values = "";
         for(String key: relationship_key_values.keySet()){
@@ -925,18 +888,11 @@ public class DatabaseClient {
         return tx.run(
                 parent + child + edge,
                 Values.parameters(
-                        "problem", problem,
-                        "parent_label", parent_label,
                         "parent_name", parent_name,
-                        "child_label", child_label,
                         "child_name", child_name,
-                        "dependency_name", dependency_name,
                         "rel_type", rel_type
                 )
         );
     }
-
-
-
 
 }

@@ -40,5 +40,5 @@ dependencies {
 
 
 application {
-    mainClassName = 'app.App'
+    mainClassName = 'app.AppProd'
 }

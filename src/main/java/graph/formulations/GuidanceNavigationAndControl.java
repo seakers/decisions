@@ -1,4 +1,4 @@
-package formulations;
+package graph.formulations;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;

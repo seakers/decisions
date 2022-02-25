@@ -7,11 +7,10 @@ package app;
 import com.google.gson.*;
 import com.opencsv.CSVWriter;
 import evaluation.GNC_Evaluator;
-import formulations.Decadal;
+import graph.formulations.Decadal;
 import graph.Graph;
 import graph.neo4j.DatabaseClient;
 import graph.utils.Design;
-import hand_crafted.ExpertFormulation;
 import moea.Algorithm;
 import moea.Results;
 import moea.problems.ADDProblem;
@@ -20,7 +19,7 @@ import org.moeaframework.Analyzer;
 import org.moeaframework.core.NondominatedPopulation;
 import org.moeaframework.core.Solution;
 import org.moeaframework.core.variable.BinaryIntegerVariable;
-import formulations.Smap;
+import graph.formulations.Smap;
 import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsClient;
@@ -37,7 +36,7 @@ public class App {
     public static void main(String[] args) {
 
 
-        int runs = 30;
+        int runs = 1;
         for(int run_number = 0; run_number < runs; run_number++) {
             System.gc();
 
@@ -51,7 +50,7 @@ public class App {
 //
 
             // MOEA
-            boolean moea_full         = true;
+            boolean moea_full         = false;
             boolean moea_selecting    = false;
             boolean moea_partitioning = false;
             boolean moea_permuting    = false;
@@ -86,11 +85,7 @@ public class App {
             // GRAPH TYPE: Decadal / GNC / SMAP / GNC_TEST
             String graph_type = "Decadal";
 
-            // TRAVERSAL
-            String breadthTraversalGraph = "breadth-graph";
-            String depthTraversalGraph   = "depth-graph";
-
-            // RESET SWITCHES
+            // RESET SWITCHES (clears all graphs / nodes when Graph obj constructor starts)
             boolean reset_nodes  = true;
             boolean reset_graphs = true;
 
@@ -153,18 +148,16 @@ public class App {
 
 
 
-            // 2. Build Database Client
+            // 2. Build Neo4j Database Client
             DatabaseClient client = new DatabaseClient.Builder(uri)
-                    .credentials(user, password)
-                    .problem(problem)
+                    .setCredentials(user, password)
+                    .setFormulation(problem)
                     .build();
 
             // 3. Build Graph Object
-            Graph graph = new Graph.Builder(client, problem, reset_nodes, reset_graphs)
+            Graph graph = new Graph.Builder(client, "EOSS", problem, reset_nodes, reset_graphs)
                     .setMutationType(mutation_type)
                     .indexGraph(graph_type)
-                    .buildBreadthFirstOrdering(breadthTraversalGraph)
-                    .buildDepthFirstOrdering(depthTraversalGraph)
                     .buildTopologicalOrdering()
                     .projectGraph()
                     .build();
@@ -297,7 +290,7 @@ public class App {
                 }
             }
 
-            // Solving formulations individually
+            // Solving graph.formulations individually
             if (moea_selecting){
                 Algorithm ga = new Algorithm.Builder(graph, sqsClient)
                         .setTargetNode("Instrument Selection")
