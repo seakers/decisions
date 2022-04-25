@@ -4,4 +4,4 @@ results
 build
 debug
 .gradle
-neo4j
+neo4j/*
