@@ -63,9 +63,8 @@ public class Partitioning extends Decision {
         for(Decision parent: this.parents){
             JsonObject dependency = parent.getLastDecision(this.node_name, this.node_type, 0);
             JsonArray  dependency_elements = dependency.get("elements").getAsJsonArray();
-            Iterator dependency_iterator = dependency_elements.iterator();
-            while(dependency_iterator.hasNext()){
-                parents_merged.add(((JsonElement) dependency_iterator.next()).getAsJsonObject());
+            for (JsonElement dependency_element : dependency_elements) {
+                parents_merged.add(dependency_element.getAsJsonObject());
             }
         }
         if (print) {System.out.println("--> Merged Parents: " + this.gson.toJson(parents_merged));}

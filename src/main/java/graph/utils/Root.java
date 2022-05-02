@@ -3,16 +3,12 @@ package graph.utils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import graph.Decision;
 import graph.Graph;
 import org.neo4j.driver.Record;
-import org.neo4j.driver.Value;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 
 public class Root extends Decision {
 
@@ -43,7 +39,7 @@ public class Root extends Decision {
         JsonObject empty = new JsonObject();
         System.out.println(node_name + node_type);
 
-        Iterator dependency_iterator = this.parameters.iterator();
+        Iterator<JsonElement> dependency_iterator = this.parameters.iterator();
         while(dependency_iterator.hasNext()){
             JsonObject dependency = ((JsonElement) dependency_iterator.next()).getAsJsonObject();
             String dependency_name = Graph.removeQuotes(dependency.get("child_name").toString());

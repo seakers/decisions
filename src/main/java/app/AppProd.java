@@ -39,6 +39,7 @@ public class AppProd {
 
         // --> 2. Override variables as necessary
         formulation = "EOSS";
+        formulation = "TDRS";
         problem     = "SMAP";
 
         // --> 3. Place variables into hashmap
@@ -80,7 +81,7 @@ public class AppProd {
             System.out.println("--> FINISHED RUNNING CONSUMER");
         }
 
-
+        System.exit(0);
     }
 
 

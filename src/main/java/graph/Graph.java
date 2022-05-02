@@ -76,6 +76,9 @@ public class Graph {
             if(graph_type.equals("EOSS")){
                 this.client.indexEOSS();
             }
+            else if(graph_type.equals("TDRS")){
+                this.client.indexTDRS();
+            }
 //            else if(graph_type.equals("GNC")){
 //                this.client.indexGNCFull();
 //            }

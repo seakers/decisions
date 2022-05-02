@@ -113,6 +113,22 @@ public class Structure {
         }
     }
 
+    public static JsonArray getAbstractElements(JsonObject element, String operates_on, boolean copy){
+        // Check to see if the typing is correct
+        if(!element.has(operates_on)){
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            System.out.println("---> TRIED TO RETRIEVE NON EXISTANT SUB-ELEMENTS " + gson.toJson(element));
+            System.exit(0);
+        }
+
+        if(copy){
+            return (element.getAsJsonArray("elements").deepCopy());
+        }
+        else{
+            return (element.getAsJsonArray("elements"));
+        }
+    }
+
 
 
 

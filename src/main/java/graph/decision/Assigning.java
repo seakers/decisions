@@ -90,8 +90,19 @@ public class Assigning extends Decision {
         // Dependency depth not yet implemented in assigning decision
         int        dependency_depth = this.getConstantDecisionDepth(dependency);
 
-        JsonArray components_from = Structure.pruneInactiveElements(dependency.get("elements").getAsJsonArray());
-        JsonArray components_to   = Structure.pruneInactiveElements(dependency.get("elements").getAsJsonArray());
+        JsonArray components_from;
+        JsonArray components_to;
+        if(dependency.has("elements_to") && dependency.has("elements_from")){
+            components_from = Structure.pruneInactiveElements(dependency.get("elements_from").getAsJsonArray());
+            components_to   = Structure.pruneInactiveElements(dependency.get("elements_to").getAsJsonArray());
+        }
+        else{
+            components_from = Structure.pruneInactiveElements(dependency.get("elements").getAsJsonArray());
+            components_to   = Structure.pruneInactiveElements(dependency.get("elements").getAsJsonArray());
+        }
+
+
+
 
         parents_merged.add(components_from);
         parents_merged.add(components_to);

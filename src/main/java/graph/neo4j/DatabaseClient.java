@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import graph.formulations.Smap;
 import graph.Decision;
 import graph.Graph;
+import graph.formulations.TDRS;
 import graph.sort.Topological;
 import org.neo4j.driver.*;
 import graph.formulations.Decadal;
@@ -74,9 +75,11 @@ public class DatabaseClient {
     public JsonArray getNodeProblemInfo(String node_name){
 
         // --> 1. Get all problem info
+        System.out.println("--> GETTING NODE PROBLEM INFO");
         ArrayList<Record> problem_list = this.getNodeParameter(node_name, "problems");
         String            problem_str  = problem_list.get(0).get("n.problems").asString();
         JsonObject        problems     = JsonParser.parseString(problem_str).getAsJsonObject();
+        System.out.println("--> " + problems);
 
         // --> 2. If problem info not found, index empty problem info
         if(!problems.has(this.problem)){
@@ -86,7 +89,8 @@ public class DatabaseClient {
         }
 
         // --> 3. Else, return current problem info
-        return problems.getAsJsonArray("elements");
+        // return problems.getAsJsonArray("elements");
+        return problems.getAsJsonArray(this.problem);
     }
 
 
@@ -233,6 +237,9 @@ public class DatabaseClient {
 //    |_|  |_|\__,_|\__\__,_|\__|_|\___/|_| |_|___/
 
 
+    /*
+        - Called by decision / design nodes
+     */
     public ArrayList<Record> updateNodeProblemInfo(String node_name, JsonArray elements){
 
         // --> 1. Get current problem info from node
@@ -272,30 +279,10 @@ public class DatabaseClient {
         }
         return nodes;
     }
+    
 
-    public ArrayList<Record> setNodeParameterJsonArray(String node_name, String parameter, JsonArray elements){
-        Session session = this.driver.session();
-        return  session.writeTransaction( tx -> nodeParameterMutationArray(tx, node_name, parameter, elements));
-    }
-    private ArrayList<Record> nodeParameterMutationArray(final Transaction tx, String node_name, String parameter, JsonArray elements){
-        String node_str     = " MATCH (n:" + this.formulation + ") ";
-        String where_str    = " WHERE n.name = \"" + node_name + "\"  ";
-        String set_str      = " SET n." + parameter + " = $elements ";
-        String elements_str = this.gson.toJson(elements);
-        Result query = tx.run(
-                node_str +
-                        where_str +
-                        set_str +
-                        "RETURN n",
-                Values.parameters("elements", elements_str)
-        );
-        ArrayList<Record> nodes = new ArrayList<>();
-        while(query.hasNext()){
-            Record node = query.next();
-            nodes.add(node);
-        }
-        return nodes;
-    }
+
+
 
 
 
@@ -746,6 +733,44 @@ public class DatabaseClient {
         }
     }
 
+    /*
+        TDRS Formulation
+        -
+     */
+
+    public void indexTDRS(){
+        try (Session session1 = this.driver.session()){
+
+            String problem         = this.formulation;
+            String root_parameters = this.gson.toJson(TDRS.getRootParameters(this.problem));
+
+            // 1. Create nodes
+            session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Antenna Assignment"));
+
+            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
+
+            // 2. Create dependencies
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Root",
+                            "Antenna Assignment",
+                            "ROOT_DEPENDENCY"
+                    )
+            );
+
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Antenna Assignment",
+                            "Design",
+                            "FINAL_DEPENDENCY"
+                    )
+            );
+
+
+        }
+    }
+
 
     /*
         EOSS Formulation
@@ -799,7 +824,12 @@ public class DatabaseClient {
 
 
 
-
+//     ____          _  _      _   _   _             _
+//    |  _ \        (_)| |    | | | \ | |           | |
+//    | |_) | _   _  _ | |  __| | |  \| |  ___    __| |  ___  ___
+//    |  _ < | | | || || | / _` | | . ` | / _ \  / _` | / _ \/ __|
+//    | |_) || |_| || || || (_| | | |\  || (_) || (_| ||  __/\__ \
+//    |____/  \__,_||_||_| \__,_| |_| \_| \___/  \__,_| \___||___/
 
 
     private Result addGenericRoot(final Transaction tx, final String problems_str){

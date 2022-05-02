@@ -33,6 +33,7 @@ public class Decision {
     protected DatabaseClient            client;
     protected Record                    node;
     protected ArrayList<Decision>       parents;
+
     protected ArrayList<Record>         children;
     protected HashMap<String, Decision> decision_nodes;
     protected Gson                      gson;
@@ -52,6 +53,18 @@ public class Decision {
     // Last decisions made form either: crossover, random decision...
     public    JsonArray                 last_decision;
 
+
+
+    /*
+        This variable denotes the target field that the decision is to operate on. The following describes the behavior
+            of each decision type with regards to this variable.
+
+        1. StandardForm
+            - The decision searches each dimension of the data structure to see if it contains the operates_on key. If
+                it does, choose the corresponding policy for the StandardForm decision
+     */
+    protected String                    operates_on;
+    protected JsonObject                decisions_obj;
 
 
     // ENUMERATION
@@ -87,7 +100,10 @@ public class Decision {
         protected JsonArray                 designs;
         protected Random                    rand;
 
+        protected String                    operates_on;
+
         public Builder(Record node){
+            this.operates_on = null;
             this.node      = node;
             this.node_name = node.get("names.name").toString().replace("\"", "");
             this.node_type = node.get("names.type").toString().replace("\"", "");
@@ -149,6 +165,11 @@ public class Decision {
             return this;
         }
 
+        public Builder setOperatesOn(String operates_on){
+            this.operates_on = operates_on;
+            return this;
+        }
+
 
         public Decision build() { return new Decision(this);}
     }
@@ -177,6 +198,7 @@ public class Decision {
         this.parameters     = builder.parameters;
         this.decisions      = builder.decisions;
         this.designs        = builder.designs;
+        this.operates_on    = builder.operates_on;
         this.rand           = builder.rand;
         this.last_decision  = new JsonArray();
         this.enumeration_store = new HashMap<>();
@@ -341,6 +363,27 @@ public class Decision {
         );
     }
 
+    protected void indexNewAbstractDesign(JsonArray parent_design_elements, JsonArray new_design_elements){
+        JsonObject new_design = new JsonObject();
+        int        new_idx    = this.decisions.size();
+
+        new_design.addProperty("id", new_idx);
+        new_design.add((this.operates_on + "_elements"), new_design_elements);
+        new_design.add((this.operates_on + "_dependencies"), parent_design_elements);
+
+        // SCORES
+        new_design.add("scores", new JsonObject());
+
+        this.decisions.add(new_design);
+        System.out.println("\n------------ NEW DECISION ------------\n"
+                + "--- node name: " + this.node_name + "\n"
+                + "--- node type: " + this.node_type + "\n"
+                + "------- depth: " + this.getConstantDecisionDepth(new_design) + "\n"
+                + this.gson.toJson(new_design)
+                + "\n--------------------------------------\n"
+        );
+    }
+
     protected void updateNodeDecisions(){
         this.client.updateNodeProblemInfo(this.node_name, this.decisions);
     }
@@ -351,6 +394,9 @@ public class Decision {
 
 
     protected int getConstantDecisionDepth(JsonObject design){
+        if(!design.has("elements")){
+            return 1;
+        }
 
         // All designs should have at least a depth of 1
         JsonArray elements        = design.getAsJsonArray("elements");
