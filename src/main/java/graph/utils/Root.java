@@ -39,13 +39,13 @@ public class Root extends Decision {
         JsonObject empty = new JsonObject();
         System.out.println(node_name + node_type);
 
-        Iterator<JsonElement> dependency_iterator = this.parameters.iterator();
-        while(dependency_iterator.hasNext()){
-            JsonObject dependency = ((JsonElement) dependency_iterator.next()).getAsJsonObject();
+        // --> Iterate over parameters to find the correct root dependency
+        for (JsonElement parameter : this.parameters) {
+            JsonObject dependency = parameter.getAsJsonObject();
             String dependency_name = Graph.removeQuotes(dependency.get("child_name").toString());
             String dependency_type = Graph.removeQuotes(dependency.get("child_type").toString());
 
-            if(dependency_name.equals(node_name) && dependency_type.equals(node_type)){
+            if (dependency_name.equals(node_name) && dependency_type.equals(node_type)) {
                 return dependency;
             }
         }

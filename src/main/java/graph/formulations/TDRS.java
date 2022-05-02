@@ -56,6 +56,8 @@ public class TDRS {
         elements_from.add(ant2);
         elements_from.add(ant3);
 
+
+        // --> This is the child dependency passed through each ROOT_DEPENDENCY
         JsonObject assigning_obj = new JsonObject();
         assigning_obj.addProperty("child_name", "Antenna Assignment");
         assigning_obj.addProperty("child_type", "Assigning");
@@ -64,7 +66,7 @@ public class TDRS {
 
 
 
-
+        // --> This object is 'this.parameters' in the Root node
         JsonArray root_children = new JsonArray();
         root_children.add(assigning_obj);
 

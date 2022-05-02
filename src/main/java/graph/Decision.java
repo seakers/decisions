@@ -100,10 +100,7 @@ public class Decision {
         protected JsonArray                 designs;
         protected Random                    rand;
 
-        protected String                    operates_on;
-
         public Builder(Record node){
-            this.operates_on = null;
             this.node      = node;
             this.node_name = node.get("names.name").toString().replace("\"", "");
             this.node_type = node.get("names.type").toString().replace("\"", "");
@@ -141,35 +138,20 @@ public class Decision {
             return this;
         }
 
-        public Builder setDecisions(){
-//            ArrayList<Record> decision_list = this.client.getNodeParameter(this.node_name, "decisions");
-//            String            decision_str  = decision_list.get(0).get("n.decisions").asString();
-//            this.decisions                  = JsonParser.parseString(decision_str).getAsJsonArray();
-            this.decisions = this.client.getNodeProblemInfo(this.node_name);
-            return this;
-        }
-
         public Builder setParameters(){
-//            ArrayList<Record> params     = this.client.getNodeParameter(this.node_name, "initial_params");
-//            String            params_str = params.get(0).get("n.initial_params").asString();
-//            this.parameters              = JsonParser.parseString(params_str).getAsJsonArray();
             this.parameters = this.client.getNodeProblemInfo(this.node_name);
             return this;
         }
 
+        public Builder setDecisions(){
+            this.decisions = this.client.getNodeProblemInfo(this.node_name);
+            return this;
+        }
+
         public Builder setDesigns(){
-//            ArrayList<Record> designs     = this.client.getNodeParameter(this.node_name, "designs");
-//            String            designs_str = designs.get(0).get("n.designs").asString();
-//            this.designs                  = JsonParser.parseString(designs_str).getAsJsonArray();
             this.designs = this.client.getNodeProblemInfo(this.node_name);
             return this;
         }
-
-        public Builder setOperatesOn(String operates_on){
-            this.operates_on = operates_on;
-            return this;
-        }
-
 
         public Decision build() { return new Decision(this);}
     }
@@ -198,7 +180,6 @@ public class Decision {
         this.parameters     = builder.parameters;
         this.decisions      = builder.decisions;
         this.designs        = builder.designs;
-        this.operates_on    = builder.operates_on;
         this.rand           = builder.rand;
         this.last_decision  = new JsonArray();
         this.enumeration_store = new HashMap<>();
@@ -349,27 +330,6 @@ public class Decision {
         new_design.addProperty("id", new_idx);
         new_design.add("elements", new_design_elements);
         new_design.add("dependencies", parent_design_elements);
-
-        // SCORES
-        new_design.add("scores", new JsonObject());
-
-        this.decisions.add(new_design);
-        System.out.println("\n------------ NEW DECISION ------------\n"
-                + "--- node name: " + this.node_name + "\n"
-                + "--- node type: " + this.node_type + "\n"
-                + "------- depth: " + this.getConstantDecisionDepth(new_design) + "\n"
-                + this.gson.toJson(new_design)
-                + "\n--------------------------------------\n"
-        );
-    }
-
-    protected void indexNewAbstractDesign(JsonArray parent_design_elements, JsonArray new_design_elements){
-        JsonObject new_design = new JsonObject();
-        int        new_idx    = this.decisions.size();
-
-        new_design.addProperty("id", new_idx);
-        new_design.add((this.operates_on + "_elements"), new_design_elements);
-        new_design.add((this.operates_on + "_dependencies"), parent_design_elements);
 
         // SCORES
         new_design.add("scores", new JsonObject());

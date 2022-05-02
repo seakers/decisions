@@ -82,13 +82,11 @@ public class Assigning extends Decision {
         return (new JsonArray());
     }
 
-    // One parent
+    // --> One parent
     private JsonArray mergeSingleDependency(){
         JsonArray  parents_merged   = new JsonArray();
         JsonObject dependency       = this.parents.get(0).getLastDecision(this.node_name, this.node_type, 0);
 
-        // Dependency depth not yet implemented in assigning decision
-        int        dependency_depth = this.getConstantDecisionDepth(dependency);
 
         JsonArray components_from;
         JsonArray components_to;
@@ -110,7 +108,7 @@ public class Assigning extends Decision {
         return parents_merged;
     }
 
-    // Multiple parents
+    // --> Multiple parents
     private JsonArray mergeMultiDependency(){
         JsonArray parents_merged = new JsonArray();
         JsonArray assign_from    = new JsonArray();

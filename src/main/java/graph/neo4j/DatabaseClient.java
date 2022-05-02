@@ -236,9 +236,9 @@ public class DatabaseClient {
 //    | |  | | |_| | || (_| | |_| | (_) | | | \__ \
 //    |_|  |_|\__,_|\__\__,_|\__|_|\___/|_| |_|___/
 
-
     /*
-        - Called by decision / design nodes
+        - For each node, the only property that will ever need updating during runtime is the problems property
+        - Furthermore, only decision / design nodes will update the problems property during runtime
      */
     public ArrayList<Record> updateNodeProblemInfo(String node_name, JsonArray elements){
 
@@ -253,8 +253,6 @@ public class DatabaseClient {
         // --> 3. Commit JsonObject to node
         return this.setNodeParameterJsonObject(node_name, "problems", problems);
     }
-
-
 
     public ArrayList<Record> setNodeParameterJsonObject(String node_name, String parameter, JsonObject elements){
         Session session = this.driver.session();
@@ -279,7 +277,7 @@ public class DatabaseClient {
         }
         return nodes;
     }
-    
+
 
 
 
@@ -733,44 +731,6 @@ public class DatabaseClient {
         }
     }
 
-    /*
-        TDRS Formulation
-        -
-     */
-
-    public void indexTDRS(){
-        try (Session session1 = this.driver.session()){
-
-            String problem         = this.formulation;
-            String root_parameters = this.gson.toJson(TDRS.getRootParameters(this.problem));
-
-            // 1. Create nodes
-            session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
-            session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Antenna Assignment"));
-
-            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
-
-            // 2. Create dependencies
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            "Root",
-                            "Antenna Assignment",
-                            "ROOT_DEPENDENCY"
-                    )
-            );
-
-            session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
-                            "Antenna Assignment",
-                            "Design",
-                            "FINAL_DEPENDENCY"
-                    )
-            );
-
-
-        }
-    }
-
 
     /*
         EOSS Formulation
@@ -823,17 +783,52 @@ public class DatabaseClient {
 
 
 
+    /*
+        TDRS Formulation
+     */
+    public void indexTDRS(){
+        try (Session session1 = this.driver.session()){
 
-//     ____          _  _      _   _   _             _
-//    |  _ \        (_)| |    | | | \ | |           | |
-//    | |_) | _   _  _ | |  __| | |  \| |  ___    __| |  ___  ___
-//    |  _ < | | | || || | / _` | | . ` | / _ \  / _` | / _ \/ __|
-//    | |_) || |_| || || || (_| | | |\  || (_) || (_| ||  __/\__ \
-//    |____/  \__,_||_||_| \__,_| |_| \_| \___/  \__,_| \___||___/
+            String problem         = this.formulation;
+            String root_parameters = this.gson.toJson(TDRS.getRootParameters(this.problem));
+
+            // 1. Create nodes
+            session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Antenna Assignment"));
+
+            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
+
+            // 2. Create dependencies
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Root",
+                            "Antenna Assignment",
+                            "ROOT_DEPENDENCY"
+                    )
+            );
+
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            "Antenna Assignment",
+                            "Design",
+                            "FINAL_DEPENDENCY"
+                    )
+            );
+
+
+        }
+    }
+
+
+//                  _      _   _   _             _
+//        /\       | |    | | | \ | |           | |
+//       /  \    __| |  __| | |  \| |  ___    __| |  ___  ___
+//      / /\ \  / _` | / _` | | . ` | / _ \  / _` | / _ \/ __|
+//     / ____ \| (_| || (_| | | |\  || (_) || (_| ||  __/\__ \
+//    /_/    \_\\__,_| \__,_| |_| \_| \___/  \__,_| \___||___/
 
 
     private Result addGenericRoot(final Transaction tx, final String problems_str){
-
         String query = "CREATE (n:" + this.formulation + ":Root {name: \"Root\", type: \"Root\", problems: $problems_str})";
         return tx.run(query, Values.parameters("problems_str", problems_str));
     }
@@ -847,6 +842,15 @@ public class DatabaseClient {
         return tx.run(query, Values.parameters("node_name", node_name, "decision_type", decision_type,  "problems_str", problems_str));
     }
 
+    private Result addGenericDecision(final Transaction tx, final String decision_type, final String node_name, final String operates_on){
+        JsonObject problems_info = new JsonObject();
+        problems_info.add(this.problem, new JsonArray());
+        String problems_str    = this.gson.toJson(problems_info);
+
+        String query = "CREATE (n:" + this.formulation + ":Decision {name: $node_name, type: $decision_type, problems: $problems_str, operates_on: $operates_on})";
+        return tx.run(query, Values.parameters("node_name", node_name, "decision_type", decision_type,  "problems_str", problems_str, "operates_on", operates_on));
+    }
+
     private Result addGenericFinal(final Transaction tx, final String problem){
         JsonObject problems_info = new JsonObject();
         problems_info.add(this.problem, new JsonArray());
@@ -855,6 +859,18 @@ public class DatabaseClient {
         String query = "CREATE (n:" + problem + ":Design {name: \"Design\", type: \"Design\", problems: $problems_str})";
         return tx.run(query, Values.parameters("problem", problem, "problems_str", problems_str));
     }
+
+
+
+
+//                  _      _   ______     _
+//        /\       | |    | | |  ____|   | |
+//       /  \    __| |  __| | | |__    __| |  __ _   ___  ___
+//      / /\ \  / _` | / _` | |  __|  / _` | / _` | / _ \/ __|
+//     / ____ \| (_| || (_| | | |____| (_| || (_| ||  __/\__ \
+//    /_/    \_\\__,_| \__,_| |______|\__,_| \__, | \___||___/
+//                                            __/ |
+//                                           |___/
 
 
     private Result addGenericDependency(final Transaction tx,
