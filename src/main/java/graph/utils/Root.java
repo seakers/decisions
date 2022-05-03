@@ -29,29 +29,14 @@ public class Root extends Decision {
     }
 
 
+
+
+
     @Override
-    public JsonObject getLastDecision(String node_name, String node_type, int idx){
-        return this.getRootDependency(node_name, node_type, idx);
+    public JsonObject getLastDecision(){
+        return this.inputs;
     }
 
-    public JsonObject getRootDependency(String node_name, String node_type, int idx){
-        this.print();
-        JsonObject empty = new JsonObject();
-        System.out.println(node_name + node_type);
-
-        // --> Iterate over parameters to find the correct root dependency
-        for (JsonElement parameter : this.parameters) {
-            JsonObject dependency = parameter.getAsJsonObject();
-            String dependency_name = Graph.removeQuotes(dependency.get("child_name").toString());
-            String dependency_type = Graph.removeQuotes(dependency.get("child_type").toString());
-
-            if (dependency_name.equals(node_name) && dependency_type.equals(node_type)) {
-                return dependency;
-            }
-        }
-        System.out.println("---> ROOT DEPENDENCY NOT FOUND");
-        return empty;
-    }
 
 
 

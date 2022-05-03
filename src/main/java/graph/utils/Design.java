@@ -66,7 +66,7 @@ public class Design extends Decision {
     private JsonArray mergeLastParentDecisions(boolean print){
         JsonArray parents_merged = new JsonArray();
         for(Decision parent: this.parents){
-            JsonObject dependency = parent.getLastDecision(this.node_name, this.node_type, 0);
+            JsonObject dependency = parent.getLastDecision();
             JsonArray  dependency_elements = dependency.get("elements").getAsJsonArray();
             Iterator dependency_iterator = dependency_elements.iterator();
             while(dependency_iterator.hasNext()){

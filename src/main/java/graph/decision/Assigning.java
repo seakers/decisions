@@ -1,6 +1,5 @@
 package graph.decision;
 
-import app.App;
 import app.Files;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -11,7 +10,6 @@ import graph.structure.Structure;
 import org.neo4j.driver.Record;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 
@@ -64,23 +62,9 @@ public class Assigning extends Decision {
      */
     private JsonArray mergeLastParentDecisions(boolean print){
 
-        // ----- CASES -----
-//        // 1. Single Parent Dependency
-//        if(this.parents.size() == 1){
-//            return this.mergeSingleDependency();
-//        }
-//        // 2. Multiple Parent Dependencies (N > 1)
-//        else if(this.parents.size() > 1){
-//            return this.mergeMultiDependency();
-//        }
-//        else{
-//            System.out.println("---> ASSIGNING DECISION HAS NO PARENTS !!!");
-//            System.exit(0);
-//        }
-
         // ----- NEW CASES -----
         if(this.parents.size() > 0){
-            return this.mergeAnyDependency();
+            return this.mergeDependencies();
         }
         else{
             System.out.println("---> ASSIGNING DECISION HAS NO PARENTS !!!");
@@ -91,17 +75,19 @@ public class Assigning extends Decision {
     }
 
 
+    private JsonArray mergeDependencies(){
+        JsonArray assign_from         = new JsonArray();
+        JsonArray assign_to           = new JsonArray();
+        JsonArray assign_from_keys    = new JsonArray();
+        JsonArray assign_to_keys      = new JsonArray();
 
-    private JsonArray mergeAnyDependency(){
-        JsonArray parents_merged = new JsonArray();
-        JsonArray assign_from    = new JsonArray();
-        JsonArray assign_to      = new JsonArray();
-
+        // --> Iterate over parents
         for(Decision parent: this.parents){
-            JsonObject        dependency = parent.getLastDecision(this.node_name, this.node_type, 0);
+            JsonObject        dependency = parent.getLastDecision();
             ArrayList<String> directions = this.getParentMultiRelationshipAttribute(parent, "type");
             ArrayList<String> operators  = this.getParentMultiRelationshipAttribute(parent, "operates_on");
 
+            // --> Iterate over parent links
             for(int x = 0; x < directions.size(); x++){
                 String direction   = directions.get(x);
                 String operates_on = operators.get(x);
@@ -113,11 +99,13 @@ public class Assigning extends Decision {
                 if(direction.equals("FROM")){
                     while(dependency_iterator.hasNext()){
                         assign_from.add(((JsonElement) dependency_iterator.next()).getAsJsonObject().deepCopy());
+                        assign_from_keys.add(operates_on);
                     }
                 }
                 else if(direction.equals("TO")){
                     while(dependency_iterator.hasNext()){
                         assign_to.add(((JsonElement) dependency_iterator.next()).getAsJsonObject().deepCopy());
+                        assign_to_keys.add(operates_on);
                     }
                 }
                 else{
@@ -126,71 +114,15 @@ public class Assigning extends Decision {
                 }
             }
         }
-        parents_merged.add(assign_from);
-        parents_merged.add(assign_to);
-
-        return parents_merged;
-    }
 
 
-
-
-    // --> One parent
-    private JsonArray mergeSingleDependency(){
-        JsonArray  parents_merged   = new JsonArray();
-        JsonObject dependency       = this.parents.get(0).getLastDecision(this.node_name, this.node_type, 0);
-
-        // --> Check to see how many relationships the child has with the parent
-        int parent_relationship_count = this.getParentRelationshipCardinality(this.parents.get(0), "operates_on");
-
-
-        String     operates_on      = this.getParentRelationshipAttribute(this.parents.get(0), "operates_on");
-
-        // --> Get assigning components based on edge: operates_on
-        JsonArray components_from = Structure.pruneInactiveElements(dependency.get(operates_on).getAsJsonArray());;
-        JsonArray components_to   = Structure.pruneInactiveElements(dependency.get(operates_on).getAsJsonArray());;
-
-        parents_merged.add(components_from);
-        parents_merged.add(components_to);
-
-        return parents_merged;
-    }
-
-    // --> Multiple parents
-    private JsonArray mergeMultiDependency(){
         JsonArray parents_merged = new JsonArray();
-        JsonArray assign_from    = new JsonArray();
-        JsonArray assign_to      = new JsonArray();
-
-        for(Decision parent: this.parents){
-            String     parent_type         = this.getParentRelationshipAttribute(parent, "type");
-            String     operates_on         = this.getParentRelationshipAttribute(parent, "operates_on");
-            JsonObject dependency          = parent.getLastDecision(this.node_name, this.node_type, 0);
-            JsonArray  dependency_elements = dependency.get(operates_on).getAsJsonArray();
-            dependency_elements            = Structure.pruneInactiveElements(dependency_elements);
-            Iterator   dependency_iterator = dependency_elements.iterator();
-
-            if(parent_type.equals("FROM")){
-                while(dependency_iterator.hasNext()){
-                    assign_from.add(((JsonElement) dependency_iterator.next()).getAsJsonObject().deepCopy());
-                }
-            }
-            else if(parent_type.equals("TO")){
-                while(dependency_iterator.hasNext()){
-                    assign_to.add(((JsonElement) dependency_iterator.next()).getAsJsonObject().deepCopy());
-                }
-            }
-            else{
-                System.out.println("---> PARENT RELATIONSHIP IMPROPERLY SET FOR ASSIGNATION DECISION !!! " + parent_type);
-                System.exit(0);
-            }
-        }
         parents_merged.add(assign_from);
         parents_merged.add(assign_to);
-
+        parents_merged.add(assign_from_keys);
+        parents_merged.add(assign_to_keys);
         return parents_merged;
     }
-
 
 
 
@@ -221,14 +153,16 @@ public class Assigning extends Decision {
     // 2. JsonArray with elements to assign to
     public void randomDesign(JsonArray dependency) throws Exception{
 
-        JsonArray assign_from = dependency.get(0).getAsJsonArray();
-        JsonArray assign_to   = dependency.get(1).getAsJsonArray();
+        JsonArray assign_from      = dependency.get(0).getAsJsonArray();
+        JsonArray assign_to        = dependency.get(1).getAsJsonArray();
+        JsonArray assign_from_keys = dependency.get(2).getAsJsonArray();
+        JsonArray assign_to_keys   = dependency.get(3).getAsJsonArray();
 
         // DEBUG
         this.writeChildDeps(assign_to, assign_from, "random/1-child-components.json");
 
-        ArrayList<Integer> assign_from_active_indicies = this.getActiveIndicies(assign_from);
-        ArrayList<Integer> assign_to_active_indicies   = this.getActiveIndicies(assign_to);
+        ArrayList<Integer> assign_from_active_indicies = this.getActiveIndices(assign_from);
+        ArrayList<Integer> assign_to_active_indicies   = this.getActiveIndices(assign_to);
 
         if(assign_from_active_indicies.isEmpty() || assign_to_active_indicies.isEmpty()){
             throw new Exception("Assigning - randomDesign - dependencies are all inactive " + this.gson.toJson(dependency));
@@ -250,7 +184,7 @@ public class Assigning extends Decision {
         this.writeChromosome(bit_string, "random/2-rand-chromosome.json");
 
         // 3. Assign corresponding elements to: assign_to
-        JsonArray new_design = this.applyChromosome(bit_string, assign_to, assign_from);
+        JsonArray new_design = this.applyChromosome(bit_string, assign_to, assign_from, assign_to_keys, assign_from_keys);
 
         // DEBUG
         this.writeFinalCrossover(new_design, Decision.bitArrayToString(bit_string), "random/3-final-design.json");
@@ -265,33 +199,27 @@ public class Assigning extends Decision {
             This function takes a bit array and applies its assignation encoding to child_to and child_from.
         - It is assumed that all the JsonObjects in child_to and child_from are active
      */
-    private JsonArray applyChromosome(ArrayList<Integer> child_chromosome, JsonArray child_to, JsonArray child_from){
+    private JsonArray applyChromosome(ArrayList<Integer> child_chromosome, JsonArray child_to, JsonArray child_from, JsonArray child_to_keys, JsonArray child_from_keys){
         JsonArray child = new JsonArray();
 
         int counter = 0;
         for(int x = 0; x < child_to.size(); x++){
             JsonObject to_element = child_to.get(x).getAsJsonObject().deepCopy();
+            String to_key = child_to_keys.get(x).toString().replace("\"", "");;
 
             boolean has_assignation = false;
             for(int y = 0; y < child_from.size(); y++){
                 JsonObject from_element = child_from.get(y).getAsJsonObject().deepCopy();
+                String from_key = child_from_keys.get(y).toString().replace("\"", "");;
 
                 if(child_chromosome.get(counter) == 1){
                     has_assignation = true;
-                    /*
-                            If we are assigning an element A to an element B of type 'item', element B must
-                        be turned into an element of type 'list' and keep its name.
-                     */
-                    if(to_element.get("type").getAsString().equals("item")){
-                        to_element.addProperty("type", "list");
-                        JsonArray new_elements = new JsonArray();
-                        new_elements.add(from_element);
-                        to_element.add("elements", new_elements);
+
+                    // --> Add nested assigned key if doesn't exist / add assigned element
+                    if(!to_element.has(from_key)){
+                        to_element.add(from_key, new JsonArray());
                     }
-                    // Assigning to a 'list' element
-                    else{
-                        to_element.getAsJsonArray("elements").add(from_element);
-                    }
+                    to_element.getAsJsonArray(from_key).add(from_element);
                 }
                 counter++;
             }
@@ -419,9 +347,11 @@ public class Assigning extends Decision {
     public void crossover(int papa, int mama, double mutation_probability, JsonArray parent_dependencies) throws Exception{
 
         // Parent Dependencies: used to resolve the result of the crossover
-        JsonArray  child      = parent_dependencies.deepCopy();
-        JsonArray  child_from = child.get(0).getAsJsonArray();
-        JsonArray  child_to   = child.get(1).getAsJsonArray();
+        JsonArray  child           = parent_dependencies.deepCopy();
+        JsonArray  child_from      = child.get(0).getAsJsonArray();
+        JsonArray  child_to        = child.get(1).getAsJsonArray();
+        JsonArray  child_from_keys = child.get(2).getAsJsonArray();
+        JsonArray  child_to_keys   = child.get(3).getAsJsonArray();
 
         this.writeChildDeps(child_to, child_from, "crossover/child-components.json");
 
@@ -467,7 +397,7 @@ public class Assigning extends Decision {
         bit_string_representation.addProperty("bitstring", child_bitstring);
         child.add(bit_string_representation);
 
-        JsonArray child_design = this.applyChromosome(child_chromosome, child_to, child_from);
+        JsonArray child_design = this.applyChromosome(child_chromosome, child_to, child_from, child_to_keys, child_from_keys);
 
         // DEBUG
         this.writeFinalCrossover(child_design, child_bitstring, "crossover/child-components-product.json");
@@ -759,7 +689,7 @@ public class Assigning extends Decision {
         for(String enumeration: valid_enumerations){
 
             ArrayList<Integer> bit_array = Decision.bitStringToArray(enumeration);
-            JsonArray new_elements = this.applyChromosome(bit_array, to_decision, from_decision);
+            JsonArray new_elements = this.applyChromosome(bit_array, to_decision, from_decision, new JsonArray(), new JsonArray());
 
             this.enumeration_store.put(enum_counter, new_elements);
             enum_counter++;
@@ -890,7 +820,7 @@ public class Assigning extends Decision {
 
         JsonObject obj = new JsonObject();
         obj.addProperty("Chromosome", chromosome);
-        obj.add("Design", decision);
+        obj.add(this.node_writes, decision);
 
         to_write.add(obj);
 

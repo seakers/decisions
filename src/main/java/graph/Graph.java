@@ -144,7 +144,7 @@ public class Graph {
             this.root = new Root.Builder(node)
                     .setDatabaseClient(this.client)
                     .setChildren()
-                    .setParameters()
+                    .setInputs()
                     .build();
             this.decisions.put(node_name, this.root);
         }

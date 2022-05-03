@@ -67,7 +67,7 @@ public class StandardForm extends Decision {
 
         for(Decision parent: this.parents){
 
-            JsonObject decision          = parent.getLastDecision(this.node_name, this.node_type, 0);
+            JsonObject decision          = parent.getLastDecision();
             JsonArray  decision_elements = decision.get("elements").getAsJsonArray().deepCopy();
             int        decision_depth    = this.getConstantDecisionDepth(decision);
 

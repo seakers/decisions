@@ -7,7 +7,6 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import graph.Decision;
-import graph.neo4j.DatabaseClient;
 import org.neo4j.driver.Record;
 
 import java.util.*;
@@ -61,7 +60,7 @@ public class Partitioning extends Decision {
     private JsonArray mergeLastParentDecisions(boolean print){
         JsonArray parents_merged = new JsonArray();
         for(Decision parent: this.parents){
-            JsonObject dependency = parent.getLastDecision(this.node_name, this.node_type, 0);
+            JsonObject dependency = parent.getLastDecision();
             JsonArray  dependency_elements = dependency.get("elements").getAsJsonArray();
             for (JsonElement dependency_element : dependency_elements) {
                 parents_merged.add(dependency_element.getAsJsonObject());
@@ -97,7 +96,7 @@ public class Partitioning extends Decision {
 
     public void randomDesign(JsonArray dependency) throws Exception{
         JsonArray          parent_dependencies = dependency.deepCopy();
-        ArrayList<Integer> active_indicies     = this.getActiveIndicies(parent_dependencies);
+        ArrayList<Integer> active_indicies     = this.getActiveIndices(parent_dependencies);
 
         if(active_indicies.isEmpty()){
             throw new Exception("Partitioning - generateRandomDesign - dependencies are empty " + this.gson.toJson(parent_dependencies));
@@ -1129,7 +1128,7 @@ public class Partitioning extends Decision {
     // Add to this.enumeration_store object
     private void buildEnumerationStore(JsonArray elements, ArrayList<ArrayList<Integer>> architectures){
         int enum_counter = this.enumeration_store.keySet().size();
-        ArrayList<Integer> active_indicies = this.getActiveIndicies(elements);
+        ArrayList<Integer> active_indicies = this.getActiveIndices(elements);
 
         for(ArrayList<Integer> arch: architectures){
             int num_groups = Collections.max(arch);
@@ -1199,7 +1198,7 @@ public class Partitioning extends Decision {
         ArrayList<ArrayList<Integer>> architectures = all_archs.get(all_archs.size()-1);
 
         // 3.
-        ArrayList<Integer> active_indicies = this.getActiveIndicies(elements);
+        ArrayList<Integer> active_indicies = this.getActiveIndices(elements);
         for(ArrayList<Integer> arch: architectures){
             int num_groups = Collections.max(arch);
             JsonArray new_elements = new JsonArray();

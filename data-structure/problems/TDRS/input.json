@@ -1,9 +1,9 @@
 {
   "constellations": [
     {
+      "name": "GEOa-1-1",
       "id": 0,
       "active": true,
-      "name": "GEOa-1-1",
       "contract-modalities": [
         {
           "id": 0,
@@ -30,9 +30,9 @@
       ]
     },
     {
+      "name": "GEOb-1-1",
       "id": 1,
       "active": true,
-      "name": "GEOb-1-1",
       "contract-modalities": [
         {
           "id": 0,
@@ -59,9 +59,9 @@
       ]
     },
     {
+      "name": "GEOc-1-1",
       "id": 2,
       "active": true,
-      "name": "GEOc-1-1",
       "contract-modalities": [
         {
           "id": 0,
@@ -90,19 +90,19 @@
   ],
   "antennas": [
     {
+      "name": "A-SMA",
       "id": 0,
-      "active": true,
-      "name": "A-SMA"
+      "active": true
     },
     {
+      "name": "SA1",
       "id": 1,
-      "active": true,
-      "name": "SA1"
+      "active": true
     },
     {
+      "name": "SA2",
       "id": 2,
-      "active": true,
-      "name": "SA2"
+      "active": true
     }
   ]
 }

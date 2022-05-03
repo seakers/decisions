@@ -4,14 +4,11 @@ import app.App;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import graph.Decision;
-import graph.neo4j.DatabaseClient;
 import graph.structure.Structure;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.driver.Record;
 
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -58,7 +55,7 @@ public class DownSelecting extends Decision {
     private JsonArray mergeLastParentDecisions(boolean print){
         JsonArray parents_merged = new JsonArray();
         for(Decision parent: this.parents){
-            JsonObject dependency = parent.getLastDecision(this.node_name, this.node_type, 0);
+            JsonObject dependency = parent.getLastDecision();
             JsonArray  dependency_elements = dependency.get("elements").getAsJsonArray();
             Iterator   dependency_iterator = dependency_elements.iterator();
             while(dependency_iterator.hasNext()){
@@ -84,7 +81,7 @@ public class DownSelecting extends Decision {
     @Override
     public void generateRandomDesign() throws Exception{
         JsonArray          parent_dependencies = this.mergeLastParentDecisions(false);
-        ArrayList<Integer> active_indicies     = this.getActiveIndicies(parent_dependencies);
+        ArrayList<Integer> active_indicies     = this.getActiveIndices(parent_dependencies);
 
         if(active_indicies.isEmpty()){
             throw new Exception("DownSelecting - generateRandomDesign - dependencies are empty " + this.gson.toJson(parent_dependencies));
@@ -114,7 +111,7 @@ public class DownSelecting extends Decision {
     @Override
     public void generateRandomDesign(JsonArray dependency) throws Exception{
         JsonArray          parent_dependencies = dependency.deepCopy();
-        ArrayList<Integer> active_indicies     = this.getActiveIndicies(parent_dependencies);
+        ArrayList<Integer> active_indicies     = this.getActiveIndices(parent_dependencies);
 
         if(active_indicies.isEmpty()){
             throw new Exception("DownSelecting - generateRandomDesign - dependencies are empty " + this.gson.toJson(parent_dependencies));
@@ -461,7 +458,7 @@ public class DownSelecting extends Decision {
     // Add to this.enumeration_store object
     private void buildEnumerationStore(JsonArray elements, ArrayList<String> bit_strings){
         int enum_counter = this.enumeration_store.keySet().size();
-        ArrayList<Integer> active_indicies = this.getActiveIndicies(elements);
+        ArrayList<Integer> active_indicies = this.getActiveIndices(elements);
 
         for(String bit_string: bit_strings){
             JsonArray new_elements = elements.deepCopy();
@@ -530,7 +527,7 @@ public class DownSelecting extends Decision {
 
 
         // 3. Convert binray strings to JsonArray of proper elements
-        ArrayList<Integer> active_indicies = this.getActiveIndicies(elements);
+        ArrayList<Integer> active_indicies = this.getActiveIndices(elements);
         for(String bit_string: bit_strings){
             JsonArray new_elements = elements.deepCopy();
 

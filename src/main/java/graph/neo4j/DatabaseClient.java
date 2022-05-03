@@ -79,7 +79,6 @@ public class DatabaseClient {
         String            problem_str  = problem_list.get(0).get("n.problems").asString();
         JsonObject        problems     = JsonParser.parseString(problem_str).getAsJsonObject();
 
-
         // --> 2. Return current problem info
         return problems.getAsJsonObject(this.problem);
     }
@@ -225,7 +224,7 @@ public class DatabaseClient {
         String node_str   = " MATCH (names:" + this.formulation + ") ";
         String where_str  = " WHERE names.name = \"" + node_name + "\"  ";
         Result query = tx.run(
-                node_str + where_str + " RETURN names.name, names.type",
+                node_str + where_str + " RETURN names.name, names.type, names.writes",
                 Values.parameters()
         );
         ArrayList<Record> items = new ArrayList<>();
@@ -462,7 +461,7 @@ public class DatabaseClient {
             session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Instrument Selection"));
             session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Instrument to Orbit"));
 
-            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
+            session1.writeTransaction( tx -> addGenericFinal(tx));
 
 
             // 2. Create edges
@@ -537,7 +536,7 @@ public class DatabaseClient {
 
             session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Sensor to Computer"));
 
-            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
+            session1.writeTransaction( tx -> addGenericFinal(tx));
 
             // 2. Edges
 
@@ -633,7 +632,7 @@ public class DatabaseClient {
             session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Sensor to Computer"));
             session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Computer to Actuator"));
 
-            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
+            session1.writeTransaction( tx -> addGenericFinal(tx));
 
             // 2. Create dependencies
 
@@ -756,7 +755,7 @@ public class DatabaseClient {
             session1.writeTransaction( tx -> addGenericDecision(tx, "DownSelecting", "Instrument Selection"));
             session1.writeTransaction( tx -> addGenericDecision(tx, "Partitioning", "Instrument Partitioning"));
             session1.writeTransaction( tx -> addGenericDecision(tx, "Permuting", "Satellite Scheduling"));
-            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
+            session1.writeTransaction( tx -> addGenericFinal(tx));
 
             // 2. Create dependencies
             session1.writeTransaction(
@@ -796,22 +795,24 @@ public class DatabaseClient {
         TDRS Formulation
      */
     public void indexTDRS(){
-        String input_file = "/app/data-structure/problems/TDRS/input.json";
+
 
         try (Session session1 = this.driver.session()){
-            String problem         = this.formulation;
 
+            // --> 1. Read JSON input file for specific problem
+            String input_file = "/app/data-structure/problems/TDRS/input.json";
             JsonObject input_file_obj = this.gson.fromJson(new FileReader(input_file), JsonObject.class);
-            JsonObject problems_obj = new JsonObject();
-            problems_obj.add(problem, input_file_obj);
-            String root_parameters = this.gson.toJson(problems_obj);
-            // String root_parameters = this.gson.toJson(TDRS.getRootParameters(this.problem));
+
+            // --> 2. Add specific problem to current formulation
+            JsonObject formulation_problems = new JsonObject();
+            formulation_problems.add(this.problem, input_file_obj);
+            String root_parameters = this.gson.toJson(formulation_problems);
 
             // 1. Create nodes
             session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
-            session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Antenna Assignment"));
+            session1.writeTransaction( tx -> addGenericDecision(tx, "Assigning", "Antenna Assignment", "constellations"));
 
-            session1.writeTransaction( tx -> addGenericFinal(tx, problem));
+            session1.writeTransaction( tx -> addGenericFinal(tx));
 
             // 2. Create dependencies
             session1.writeTransaction(
@@ -863,21 +864,31 @@ public class DatabaseClient {
     }
 
     private Result addGenericDecision(final Transaction tx, final String decision_type, final String node_name){
+        String writes = "null";
         JsonObject problems_info = new JsonObject();
         problems_info.add(this.problem, new JsonArray());
         String problems_str    = this.gson.toJson(problems_info);
 
-        String query = "CREATE (n:" + this.formulation + ":Decision {name: $node_name, type: $decision_type, problems: $problems_str})";
-        return tx.run(query, Values.parameters("node_name", node_name, "decision_type", decision_type,  "problems_str", problems_str));
+        String query = "CREATE (n:" + this.formulation + ":Decision {name: $node_name, type: $decision_type, problems: $problems_str, writes: $writes})";
+        return tx.run(query, Values.parameters("node_name", node_name, "decision_type", decision_type,  "problems_str", problems_str, "writes", writes));
     }
 
-    private Result addGenericFinal(final Transaction tx, final String problem){
+    private Result addGenericDecision(final Transaction tx, final String decision_type, final String node_name, final String writes){
         JsonObject problems_info = new JsonObject();
         problems_info.add(this.problem, new JsonArray());
         String problems_str    = this.gson.toJson(problems_info);
 
-        String query = "CREATE (n:" + problem + ":Design {name: \"Design\", type: \"Design\", problems: $problems_str})";
-        return tx.run(query, Values.parameters("problem", problem, "problems_str", problems_str));
+        String query = "CREATE (n:" + this.formulation + ":Decision {name: $node_name, type: $decision_type, problems: $problems_str, writes: $writes})";
+        return tx.run(query, Values.parameters("node_name", node_name, "decision_type", decision_type,  "problems_str", problems_str, "writes", writes));
+    }
+
+    private Result addGenericFinal(final Transaction tx){
+        JsonObject problems_info = new JsonObject();
+        problems_info.add(this.problem, new JsonArray());
+        String problems_str    = this.gson.toJson(problems_info);
+
+        String query = "CREATE (n:" + this.formulation + ":Design {name: \"Design\", type: \"Design\", problems: $problems_str})";
+        return tx.run(query, Values.parameters("problems_str", problems_str));
     }
 
 

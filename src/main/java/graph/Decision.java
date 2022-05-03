@@ -29,6 +29,7 @@ public class Decision {
 
     public String                       node_name;
     public String                       node_type;
+    protected String                    node_writes;
 
     protected DatabaseClient            client;
     protected Record                    node;
@@ -89,6 +90,7 @@ public class Decision {
         protected DatabaseClient            client;
         protected String                    node_name;
         protected String                    node_type;
+        protected String                    node_writes;
         protected Record                    node;
         protected ArrayList<Decision>       parents;
         protected ArrayList<Record>         children;
@@ -96,18 +98,21 @@ public class Decision {
         protected Gson                      gson;
         protected JsonArray                 decisions;
         protected JsonArray                 parameters;
+        protected JsonObject                inputs;
         protected JsonArray                 designs;
         protected Random                    rand;
 
         public Builder(Record node){
-            this.node      = node;
-            this.node_name = node.get("names.name").toString().replace("\"", "");
-            this.node_type = node.get("names.type").toString().replace("\"", "");
+            this.node        = node;
+            this.node_name   = node.get("names.name").toString().replace("\"", "");
+            this.node_type   = node.get("names.type").toString().replace("\"", "");
+            this.node_writes = node.get("names.writes").toString().replace("\"", "");
             this.parents        = new ArrayList<>();
             this.decision_nodes = new HashMap<>();
             this.gson           = new GsonBuilder().setPrettyPrinting().create();
             this.decisions      = new JsonArray();
             this.parameters     = new JsonArray();
+            this.inputs         = new JsonObject();
             this.designs        = new JsonArray();
             this.rand           = new Random();
         }
@@ -137,6 +142,11 @@ public class Decision {
             return this;
         }
 
+        public Builder setInputs(){
+            this.inputs = this.client.getRootProblemInfo(this.node_name);
+            return this;
+        }
+
         public Builder setParameters(){
             this.parameters = this.client.getNodeProblemInfo(this.node_name);
             return this;
@@ -159,8 +169,10 @@ public class Decision {
         System.out.println("\n-------- DECISION --------");
         System.out.println("--------- name: " + this.node_name);
         System.out.println("--------- type: " + this.node_type);
+        System.out.println("------- writes: " + this.node_writes);
         System.out.println("------ parents: " + this.parents);
         System.out.println("----- children: " + this.children);
+        System.out.println("------- inputs: " + this.gson.toJson(this.inputs));
         System.out.println("--- parameters: " + this.gson.toJson(this.parameters));
         System.out.println("---- decisions: " + this.gson.toJson(this.decisions));
         System.out.println("------ designs: " + this.gson.toJson(this.designs));
@@ -172,11 +184,13 @@ public class Decision {
         this.node           = builder.node;
         this.node_name      = builder.node_name;
         this.node_type      = builder.node_type;
+        this.node_writes    = builder.node_writes;
         this.parents        = builder.parents;
         this.decision_nodes = builder.decision_nodes;
         this.children       = builder.children;
         this.gson           = builder.gson;
         this.parameters     = builder.parameters;
+        this.inputs         = builder.inputs;
         this.decisions      = builder.decisions;
         this.designs        = builder.designs;
         this.rand           = builder.rand;
@@ -238,10 +252,11 @@ public class Decision {
         System.out.println("---> Crossing Over Designs (" + papa +", " + mama + ") : " + this.node_name + " - " + this.node_type);
     }
 
+
     /*
         Returns last JsonObject in this.decisions
      */
-    public JsonObject getLastDecision(String node_name, String node_type, int idx){
+    public JsonObject getLastDecision(){
         int num_decisions = this.decisions.size();
         if(num_decisions == 0){
             System.out.println("--> getLastDecision: no decisions have been made");
@@ -292,7 +307,7 @@ public class Decision {
     }
 
 
-    protected ArrayList<Integer> getActiveIndicies(JsonArray array){
+    protected ArrayList<Integer> getActiveIndices(JsonArray array){
         ArrayList<Integer> indicies = new ArrayList<>();
         Iterator array_iterator = array.iterator();
         int counter = 0;
@@ -307,7 +322,7 @@ public class Decision {
         return indicies;
     }
 
-    protected ArrayList<Integer> getInactiveIndicies(JsonArray array){
+    protected ArrayList<Integer> getInactiveIndices(JsonArray array){
         ArrayList<Integer> indicies = new ArrayList<>();
         Iterator array_iterator = array.iterator();
         int counter = 0;
@@ -327,7 +342,8 @@ public class Decision {
         int        new_idx    = this.decisions.size();
 
         new_design.addProperty("id", new_idx);
-        new_design.add("elements", new_design_elements);
+        // new_design.add("elements", new_design_elements);
+        new_design.add(this.node_writes, new_design_elements);
         new_design.add("dependencies", parent_design_elements);
 
         // SCORES

@@ -4,7 +4,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import graph.Decision;
-import graph.neo4j.DatabaseClient;
 import org.neo4j.driver.Record;
 
 import java.util.*;
@@ -59,7 +58,7 @@ public class Permuting extends Decision {
     private JsonArray mergeLastParentDecisions(boolean print){
         JsonArray parents_merged = new JsonArray();
         for(Decision parent: this.parents){
-            JsonObject dependency = parent.getLastDecision(this.node_name, this.node_type, 0);
+            JsonObject dependency = parent.getLastDecision();
             JsonArray  dependency_elements = dependency.get("elements").getAsJsonArray();
             Iterator dependency_iterator = dependency_elements.iterator();
             while(dependency_iterator.hasNext()){
@@ -84,7 +83,7 @@ public class Permuting extends Decision {
     @Override
     public void generateRandomDesign() throws Exception{
         JsonArray          parent_dependencies = this.mergeLastParentDecisions(false);
-        ArrayList<Integer> active_indicies     = this.getActiveIndicies(parent_dependencies);
+        ArrayList<Integer> active_indicies     = this.getActiveIndices(parent_dependencies);
 
         if(active_indicies.isEmpty()){
             throw new Exception("DownSelecting - generateRandomDesign - dependencies are empty " + this.gson.toJson(parent_dependencies));
@@ -109,7 +108,7 @@ public class Permuting extends Decision {
     @Override
     public void generateRandomDesign(JsonArray dependency) throws Exception{
         JsonArray          parent_dependencies = dependency.deepCopy();
-        ArrayList<Integer> active_indicies     = this.getActiveIndicies(parent_dependencies);
+        ArrayList<Integer> active_indicies     = this.getActiveIndices(parent_dependencies);
 
         if(active_indicies.isEmpty()){
             throw new Exception("DownSelecting - generateRandomDesign - dependencies are empty " + this.gson.toJson(parent_dependencies));
