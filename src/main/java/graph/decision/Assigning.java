@@ -65,14 +65,22 @@ public class Assigning extends Decision {
     private JsonArray mergeLastParentDecisions(boolean print){
 
         // ----- CASES -----
+//        // 1. Single Parent Dependency
+//        if(this.parents.size() == 1){
+//            return this.mergeSingleDependency();
+//        }
+//        // 2. Multiple Parent Dependencies (N > 1)
+//        else if(this.parents.size() > 1){
+//            return this.mergeMultiDependency();
+//        }
+//        else{
+//            System.out.println("---> ASSIGNING DECISION HAS NO PARENTS !!!");
+//            System.exit(0);
+//        }
 
-        // 1. Single Parent Dependency
-        if(this.parents.size() == 1){
-            return this.mergeSingleDependency();
-        }
-        // 2. Multiple Parent Dependencies (N > 1)
-        else if(this.parents.size() > 1){
-            return this.mergeMultiDependency();
+        // ----- NEW CASES -----
+        if(this.parents.size() > 0){
+            return this.mergeAnyDependency();
         }
         else{
             System.out.println("---> ASSIGNING DECISION HAS NO PARENTS !!!");
@@ -82,25 +90,65 @@ public class Assigning extends Decision {
         return (new JsonArray());
     }
 
+
+
+    private JsonArray mergeAnyDependency(){
+        JsonArray parents_merged = new JsonArray();
+        JsonArray assign_from    = new JsonArray();
+        JsonArray assign_to      = new JsonArray();
+
+        for(Decision parent: this.parents){
+            JsonObject        dependency = parent.getLastDecision(this.node_name, this.node_type, 0);
+            ArrayList<String> directions = this.getParentMultiRelationshipAttribute(parent, "type");
+            ArrayList<String> operators  = this.getParentMultiRelationshipAttribute(parent, "operates_on");
+
+            for(int x = 0; x < directions.size(); x++){
+                String direction   = directions.get(x);
+                String operates_on = operators.get(x);
+
+                // --> TODO: Replace this with a find function to find 'operates_on' in any data structure dimension
+                JsonArray  dependency_elements = dependency.get(operates_on).getAsJsonArray();
+                System.out.println(dependency_elements);
+                Iterator   dependency_iterator = dependency_elements.iterator();
+                if(direction.equals("FROM")){
+                    while(dependency_iterator.hasNext()){
+                        assign_from.add(((JsonElement) dependency_iterator.next()).getAsJsonObject().deepCopy());
+                    }
+                }
+                else if(direction.equals("TO")){
+                    while(dependency_iterator.hasNext()){
+                        assign_to.add(((JsonElement) dependency_iterator.next()).getAsJsonObject().deepCopy());
+                    }
+                }
+                else{
+                    System.out.println("---> PARENT RELATIONSHIP IMPROPERLY SET FOR ASSIGNATION DECISION !!! " + direction);
+                    System.exit(0);
+                }
+            }
+        }
+        parents_merged.add(assign_from);
+        parents_merged.add(assign_to);
+
+        return parents_merged;
+    }
+
+
+
+
     // --> One parent
     private JsonArray mergeSingleDependency(){
         JsonArray  parents_merged   = new JsonArray();
         JsonObject dependency       = this.parents.get(0).getLastDecision(this.node_name, this.node_type, 0);
 
-
-        JsonArray components_from;
-        JsonArray components_to;
-        if(dependency.has("elements_to") && dependency.has("elements_from")){
-            components_from = Structure.pruneInactiveElements(dependency.get("elements_from").getAsJsonArray());
-            components_to   = Structure.pruneInactiveElements(dependency.get("elements_to").getAsJsonArray());
-        }
-        else{
-            components_from = Structure.pruneInactiveElements(dependency.get("elements").getAsJsonArray());
-            components_to   = Structure.pruneInactiveElements(dependency.get("elements").getAsJsonArray());
-        }
+        // --> Check to see how many relationships the child has with the parent
+        int parent_relationship_count = this.getParentRelationshipCardinality(this.parents.get(0), "operates_on");
 
 
+        String     operates_on      = this.getParentRelationshipAttribute(this.parents.get(0), "operates_on");
 
+        // --> Get assigning components based on edge: operates_on
+        JsonArray components_from = Structure.pruneInactiveElements(dependency.get(operates_on).getAsJsonArray());;
+        JsonArray components_to   = Structure.pruneInactiveElements(dependency.get(operates_on).getAsJsonArray());;
 
         parents_merged.add(components_from);
         parents_merged.add(components_to);
@@ -116,9 +164,10 @@ public class Assigning extends Decision {
 
         for(Decision parent: this.parents){
             String     parent_type         = this.getParentRelationshipAttribute(parent, "type");
+            String     operates_on         = this.getParentRelationshipAttribute(parent, "operates_on");
             JsonObject dependency          = parent.getLastDecision(this.node_name, this.node_type, 0);
-            JsonArray  dependency_elements = dependency.get("elements").getAsJsonArray();
-            dependency_elements = Structure.pruneInactiveElements(dependency_elements);
+            JsonArray  dependency_elements = dependency.get(operates_on).getAsJsonArray();
+            dependency_elements            = Structure.pruneInactiveElements(dependency_elements);
             Iterator   dependency_iterator = dependency_elements.iterator();
 
             if(parent_type.equals("FROM")){

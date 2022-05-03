@@ -1,0 +1,108 @@
+{
+  "constellations": [
+    {
+      "id": 0,
+      "active": true,
+      "name": "GEOa-1-1",
+      "contract-modalities": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "procurement"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "hosted-payload"
+        }
+      ],
+      "isl-payloads": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "yes"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "no"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "active": true,
+      "name": "GEOb-1-1",
+      "contract-modalities": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "procurement"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "hosted-payload"
+        }
+      ],
+      "isl-payloads": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "yes"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "no"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "active": true,
+      "name": "GEOc-1-1",
+      "contract-modalities": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "procurement"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "hosted-payload"
+        }
+      ],
+      "isl-payloads": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "yes"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "no"
+        }
+      ]
+    }
+  ],
+  "antennas": [
+    {
+      "id": 0,
+      "active": true,
+      "name": "A-SMA"
+    },
+    {
+      "id": 1,
+      "active": true,
+      "name": "SA1"
+    },
+    {
+      "id": 2,
+      "active": true,
+      "name": "SA2"
+    }
+  ]
+}

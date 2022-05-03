@@ -1,0 +1,89 @@
+{
+  "sensors": [
+    {
+      "id": 0,
+      "active": true,
+      "sensor_type": [
+        {"id": 0, "active": true, "name": "s1"},
+        {"id": 1, "active": true, "name": "s2"},
+        {"id": 2, "active": true, "name": "s3"}
+      ]
+    },
+    {
+      "id": 1,
+      "active": true,
+      "sensor_type": [
+        {"id": 0, "active": true, "name": "s1"},
+        {"id": 1, "active": true, "name": "s2"},
+        {"id": 2, "active": true, "name": "s3"}
+      ]
+    },
+    {
+      "id": 2,
+      "active": true,
+      "sensor_type": [
+        {"id": 0, "active": true, "name": "s1"},
+        {"id": 1, "active": true, "name": "s2"},
+        {"id": 2, "active": true, "name": "s3"}
+      ]
+    }
+  ],
+  "computers": [
+    {
+      "id": 0,
+      "active": true,
+      "computer_type": [
+        {"id": 0, "active": true, "name": "c1"},
+        {"id": 1, "active": true, "name": "c2"},
+        {"id": 2, "active": true, "name": "c3"}
+      ]
+    },
+    {
+      "id": 1,
+      "active": true,
+      "computer_type": [
+        {"id": 0, "active": true, "name": "c1"},
+        {"id": 1, "active": true, "name": "c2"},
+        {"id": 2, "active": true, "name": "c3"}
+      ]
+    },
+    {
+      "id": 2,
+      "active": true,
+      "computer_type": [
+        {"id": 0, "active": true, "name": "c1"},
+        {"id": 1, "active": true, "name": "c2"},
+        {"id": 2, "active": true, "name": "c3"}
+      ]
+    }
+  ],
+  "actuators": [
+    {
+      "id": 0,
+      "active": true,
+      "actuator_type": [
+        {"id": 0, "active": true, "name": "a1"},
+        {"id": 1, "active": true, "name": "a2"},
+        {"id": 2, "active": true, "name": "a3"}
+      ]
+    },
+    {
+      "id": 1,
+      "active": true,
+      "actuator_type": [
+        {"id": 0, "active": true, "name": "a1"},
+        {"id": 1, "active": true, "name": "a2"},
+        {"id": 2, "active": true, "name": "a3"}
+      ]
+    },
+    {
+      "id": 2,
+      "active": true,
+      "actuator_type": [
+        {"id": 0, "active": true, "name": "a1"},
+        {"id": 1, "active": true, "name": "a2"},
+        {"id": 2, "active": true, "name": "a3"}
+      ]
+    }
+  ]
+}

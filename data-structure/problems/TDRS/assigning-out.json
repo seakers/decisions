@@ -1,0 +1,117 @@
+{
+  "constellations": [
+    {
+      "name": "GEOa-1-1",
+      "id": 0,
+      "active": true,
+      "contract-modalities": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "procurement"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "hosted-payload"
+        }
+      ],
+      "isl-payloads": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "yes"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "no"
+        }
+      ],
+      "antennas": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "A-SMA"
+        }
+      ]
+    },
+    {
+      "name": "GEOb-1-1",
+      "id": 1,
+      "active": true,
+      "contract-modalities": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "procurement"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "hosted-payload"
+        }
+      ],
+      "isl-payloads": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "yes"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "no"
+        }
+      ],
+      "antennas": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "A-SMA"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "SA1"
+        }
+      ]
+    },
+    {
+      "name": "GEOc-1-1",
+      "id": 2,
+      "active": true,
+      "contract-modalities": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "procurement"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "hosted-payload"
+        }
+      ],
+      "isl-payloads": [
+        {
+          "id": 0,
+          "active": true,
+          "name": "yes"
+        },
+        {
+          "id": 1,
+          "active": true,
+          "name": "no"
+        }
+      ],
+      "antennas": [
+        {
+          "id": 2,
+          "active": true,
+          "name": "SA2"
+        }
+      ]
+    }
+  ]
+}

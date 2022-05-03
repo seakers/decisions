@@ -13,6 +13,7 @@ import org.neo4j.driver.*;
 import graph.formulations.Decadal;
 import graph.formulations.GuidanceNavigationAndControl;
 
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Stack;
@@ -71,15 +72,23 @@ public class DatabaseClient {
 //    | |__| | |_| |  __/ |  | |  __/\__ \
 //     \___\_\\__,_|\___|_|  |_|\___||___/
 
-
-    public JsonArray getNodeProblemInfo(String node_name){
+    public JsonObject getRootProblemInfo(String node_name){
 
         // --> 1. Get all problem info
-        System.out.println("--> GETTING NODE PROBLEM INFO");
         ArrayList<Record> problem_list = this.getNodeParameter(node_name, "problems");
         String            problem_str  = problem_list.get(0).get("n.problems").asString();
         JsonObject        problems     = JsonParser.parseString(problem_str).getAsJsonObject();
-        System.out.println("--> " + problems);
+
+
+        // --> 2. Return current problem info
+        return problems.getAsJsonObject(this.problem);
+    }
+    public JsonArray getNodeProblemInfo(String node_name){
+
+        // --> 1. Get all problem info
+        ArrayList<Record> problem_list = this.getNodeParameter(node_name, "problems");
+        String            problem_str  = problem_list.get(0).get("n.problems").asString();
+        JsonObject        problems     = JsonParser.parseString(problem_str).getAsJsonObject();
 
         // --> 2. If problem info not found, index empty problem info
         if(!problems.has(this.problem)){
@@ -787,10 +796,16 @@ public class DatabaseClient {
         TDRS Formulation
      */
     public void indexTDRS(){
-        try (Session session1 = this.driver.session()){
+        String input_file = "/app/data-structure/problems/TDRS/input.json";
 
+        try (Session session1 = this.driver.session()){
             String problem         = this.formulation;
-            String root_parameters = this.gson.toJson(TDRS.getRootParameters(this.problem));
+
+            JsonObject input_file_obj = this.gson.fromJson(new FileReader(input_file), JsonObject.class);
+            JsonObject problems_obj = new JsonObject();
+            problems_obj.add(problem, input_file_obj);
+            String root_parameters = this.gson.toJson(problems_obj);
+            // String root_parameters = this.gson.toJson(TDRS.getRootParameters(this.problem));
 
             // 1. Create nodes
             session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
@@ -800,10 +815,21 @@ public class DatabaseClient {
 
             // 2. Create dependencies
             session1.writeTransaction(
-                    tx -> addGenericDependency(tx,
+                    tx -> addGenericDependency2(tx,
                             "Root",
                             "Antenna Assignment",
-                            "ROOT_DEPENDENCY"
+                            "ROOT_DEPENDENCY",
+                            "TO",
+                            "constellations"
+                    )
+            );
+            session1.writeTransaction(
+                    tx -> addGenericDependency2(tx,
+                            "Root",
+                            "Antenna Assignment",
+                            "ROOT_DEPENDENCY",
+                            "FROM",
+                            "antennas"
                     )
             );
 
@@ -816,6 +842,9 @@ public class DatabaseClient {
             );
 
 
+        }
+        catch (Exception ex){
+            ex.printStackTrace();
         }
     }
 
@@ -840,15 +869,6 @@ public class DatabaseClient {
 
         String query = "CREATE (n:" + this.formulation + ":Decision {name: $node_name, type: $decision_type, problems: $problems_str})";
         return tx.run(query, Values.parameters("node_name", node_name, "decision_type", decision_type,  "problems_str", problems_str));
-    }
-
-    private Result addGenericDecision(final Transaction tx, final String decision_type, final String node_name, final String operates_on){
-        JsonObject problems_info = new JsonObject();
-        problems_info.add(this.problem, new JsonArray());
-        String problems_str    = this.gson.toJson(problems_info);
-
-        String query = "CREATE (n:" + this.formulation + ":Decision {name: $node_name, type: $decision_type, problems: $problems_str, operates_on: $operates_on})";
-        return tx.run(query, Values.parameters("node_name", node_name, "decision_type", decision_type,  "problems_str", problems_str, "operates_on", operates_on));
     }
 
     private Result addGenericFinal(final Transaction tx, final String problem){
@@ -912,6 +932,82 @@ public class DatabaseClient {
                 )
         );
     }
+
+
+
+
+    private Result addGenericDependency2(final Transaction tx,
+                                         final String parent_name,
+                                         final String child_name,
+                                         final String dependency_name,
+                                         final String operates_on
+    ){
+        String rel_type = "";
+        String parent   = "MATCH  (parent:" + this.formulation + " {name: $parent_name}) ";
+        String child    = "MATCH  (child:"  + this.formulation + " {name: $child_name} ) ";
+        String edge     = "CREATE (parent)-[:" + dependency_name + " { type: $rel_type, operates_on: $operates_on}]->(child)";
+
+        return tx.run(
+                parent + child + edge,
+                Values.parameters(
+                        "parent_name", parent_name,
+                        "child_name", child_name,
+                        "rel_type", rel_type,
+                        "operates_on", operates_on
+                )
+        );
+    }
+
+    private Result addGenericDependency2(final Transaction tx,
+                                         final String parent_name,
+                                         final String child_name,
+                                         final String dependency_name,
+                                         final String rel_type,
+                                         final String operates_on
+    ){
+        String parent   = "MATCH  (parent:" + this.formulation + " {name: $parent_name}) ";
+        String child    = "MATCH  (child:"  + this.formulation + " {name: $child_name} ) ";
+        String edge   = "CREATE (parent)-[:" + dependency_name + " { type: $rel_type, operates_on: $operates_on}]->(child)";
+
+        return tx.run(
+                parent + child + edge,
+                Values.parameters(
+                        "parent_name", parent_name,
+                        "child_name", child_name,
+                        "rel_type", rel_type,
+                        "operates_on", operates_on
+                )
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     private Result addGenericDependency(final Transaction tx,

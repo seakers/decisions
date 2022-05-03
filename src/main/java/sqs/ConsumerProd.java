@@ -99,7 +99,7 @@ public class ConsumerProd implements Runnable{
 
 
         try{
-//            this.graph.generateRandomDesign();
+            this.graph.generateRandomDesign();
         }
         catch (Exception ex){
             ex.printStackTrace();

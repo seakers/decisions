@@ -46,6 +46,7 @@ public class Decision {
 
     // ROOT
     protected JsonArray                 parameters;
+    protected JsonObject                inputs;
 
     // DESIGN
     protected JsonArray                 designs;
@@ -63,8 +64,6 @@ public class Decision {
             - The decision searches each dimension of the data structure to see if it contains the operates_on key. If
                 it does, choose the corresponding policy for the StandardForm decision
      */
-    protected String                    operates_on;
-    protected JsonObject                decisions_obj;
 
 
     // ENUMERATION
@@ -123,7 +122,7 @@ public class Decision {
             ArrayList<Record> parents = this.client.getNodeParents(this.node_name);
             for(Record parent: parents){
                 String parent_name = parent.get("m.name").toString().replace("\"", "");
-                if(this.decision_nodes.containsKey(parent_name)){
+                if(this.decision_nodes.containsKey(parent_name) && !this.parents.contains(this.decision_nodes.get(parent_name))){
                     this.parents.add(this.decision_nodes.get(parent_name));
                 }
                 else{
@@ -405,6 +404,20 @@ public class Decision {
     protected String getParentRelationshipAttribute(Decision parent, String attribute){
         ArrayList<Record> type_obj = this.client.getRelationshipAttribute(parent, this, attribute);
         return type_obj.get(0).get("(r."+attribute+")").asString();
+    }
+
+    protected ArrayList<String> getParentMultiRelationshipAttribute(Decision parent, String attribute){
+        ArrayList<String> attributes = new ArrayList<>();
+        ArrayList<Record> type_obj = this.client.getRelationshipAttribute(parent, this, attribute);
+        for(Record rec: type_obj){
+            attributes.add(rec.get("(r."+attribute+")").asString());
+        }
+        return attributes;
+    }
+
+    protected int getParentRelationshipCardinality(Decision parent, String attribute){
+        ArrayList<Record> type_obj = this.client.getRelationshipAttribute(parent, this, attribute);
+        return type_obj.size();
     }
 
 
