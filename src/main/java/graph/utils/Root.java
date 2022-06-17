@@ -25,7 +25,6 @@ public class Root extends Decision {
 
     protected Root(Root.Builder builder){
         super(builder);
-
     }
 
 
