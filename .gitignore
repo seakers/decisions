@@ -6,3 +6,5 @@ debug
 .gradle
 .idea
 neo4j/*
+.env
+.env.local
