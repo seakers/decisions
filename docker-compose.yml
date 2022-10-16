@@ -16,9 +16,9 @@ services:
       - NEO4J_dbms_security_procedures_unrestricted=gds.*
       - NEO4J_dbms_security_procedures_whitelist=gds.*
       - NEO4JLABS_PLUGINS='["graph-data-science"]'
-  add_engine:
+  add_engine_old:
     build: .
-    image: add_server:alpha
+    image: add_server:alpha-1
     volumes:
       - type: bind
         source: .
@@ -33,5 +33,5 @@ services:
       - PROBLEM=ClimateCentric
       - EVAL_QUEUE=add_queue
       - VASSAR_QUEUE=http://localhost:9324/000000000000/vassar_queue
-    container_name: add_engine
+    container_name: add_engine_old
     tty: true

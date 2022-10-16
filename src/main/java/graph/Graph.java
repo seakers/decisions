@@ -2,6 +2,7 @@ package graph;
 
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import graph.decision.*;
 import graph.neo4j.DatabaseClient;
 import graph.utils.Design;
@@ -12,6 +13,22 @@ import java.util.HashMap;
 import java.util.Random;
 
 public class Graph {
+
+
+    // -----------------------------
+    // ----- SINGLETON PATTERN -----
+    // -----------------------------
+
+    private static Graph instance = new Graph();
+
+    public static Graph getInstance() { return instance; }
+
+    public boolean is_built = false;
+
+
+    // ---------------------
+    // ----- VARIABLES -----
+    // ---------------------
 
     private DatabaseClient      client;
     private ArrayList<Record>   depthFirstNodes;
@@ -50,6 +67,8 @@ public class Graph {
         private String                    formulation;
         private String                    mutationType;
 
+        private JsonObject adg_specs = null;
+
         public Builder(DatabaseClient client, String formulation, String problem, boolean reset_nodes, boolean reset_graphs) {
             this.client  = client;
             this.problem = problem;
@@ -65,11 +84,39 @@ public class Graph {
                 this.client.obliterateGraphs();
             }
         }
-
         public Builder setMutationType(String mutationType){
             this.mutationType = mutationType;
             return this;
         }
+
+
+        public Builder(String formulation, String problem, JsonObject adg_specs){
+            this.adg_specs = adg_specs;
+            this.problem = problem;
+            this.formulation = formulation;
+            this.topologicalNodes  = new ArrayList<>();
+            this.depthFirstNodes   = new ArrayList<>();
+            this.decisions         = new HashMap<>();
+            this.mutationType      = "JOINT";
+        }
+        public Builder buildDatabaseClient(String uri, String user, String password, boolean reset_nodes, boolean reset_graphs){
+
+            this.client = new DatabaseClient.Builder(uri)
+                    .setCredentials(user, password)
+                    .setFormulation(this.formulation)
+                    .setProblem(this.problem)
+                    .build();
+
+            if(reset_nodes){
+                this.client.obliterateNodes();
+            }
+            if(reset_graphs){
+                this.client.obliterateGraphs();
+            }
+            return this;
+        }
+
+
 
         public Builder indexGraph(String graph_type){
 
@@ -91,6 +138,13 @@ public class Graph {
 
             return this;
         }
+
+        public Builder indexGraph(){
+            this.client.indexCameoFormulation(this.adg_specs);
+            return this;
+        }
+
+
 
         public Builder buildTopologicalOrdering(){
 
@@ -144,7 +198,7 @@ public class Graph {
             this.root = new Root.Builder(node)
                     .setDatabaseClient(this.client)
                     .setChildren()
-                    .setInputs()
+//                    .setInputs()
                     .build();
             this.decisions.put(node_name, this.root);
         }
@@ -238,6 +292,8 @@ public class Graph {
             build.mutationType      = this.mutationType;
             build.problem = problem;
             build.formulation = formulation;
+            build.is_built = true;
+            Graph.instance = build;
             return build;
         }
     }
@@ -381,7 +437,10 @@ public class Graph {
         return   node.enumerateDecision(dependency);
     }
 
-
+    public ArrayList<JsonArray> getEnumeratedDesignObjects(){
+        Design d_node = (Design) this.end_node;
+        return d_node.getEnumeratedDesignObjects();
+    }
 
 
     // ---------------------
@@ -470,11 +529,24 @@ public class Graph {
         return d_node.getDesignString(idx);
     }
 
+    public JsonArray getDesignObject(int idx){
+        Design d_node = (Design) this.end_node;
+        return d_node.getDesignObject(idx);
+    }
+
     // --> SINGLE NODE
     public String getDesignString(int idx, String node_name){
         Decision node = this.decisions.get(node_name);
         return node.getDesignString(idx);
     }
+
+    public int getNumDesigns(){
+        Design d_node = (Design) this.end_node;
+        return d_node.getNumDesigns();
+    }
+
+
+
 
 
     // --------------------

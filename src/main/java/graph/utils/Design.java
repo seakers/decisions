@@ -170,12 +170,30 @@ public class Design extends Decision {
         return this.gson.toJson(elements);
     }
 
+    public int getNumDesigns(){
+        return this.decisions.size();
+    }
+
+    public JsonArray getDesignObject(int idx){
+        JsonObject design   = this.decisions.get(idx).getAsJsonObject();
+        JsonArray  elements = design.getAsJsonArray("elements");
+        return elements;
+    }
+
     public ArrayList<String> getEnumeratedDesignStrings(){
         ArrayList<String> all_designs = new ArrayList<>();
 
         for(Integer key: this.enumeration_store.keySet()){
             String design_str = this.gson.toJson(this.enumeration_store.get(key));
             all_designs.add(design_str);
+        }
+        return all_designs;
+    }
+
+    public ArrayList<JsonArray> getEnumeratedDesignObjects(){
+        ArrayList<JsonArray> all_designs = new ArrayList<>();
+        for(Integer key: this.enumeration_store.keySet()){
+            all_designs.add(this.enumeration_store.get(key));
         }
         return all_designs;
     }
