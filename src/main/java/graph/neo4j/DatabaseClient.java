@@ -1,9 +1,6 @@
 package graph.neo4j;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import graph.formulations.Smap;
 import graph.Decision;
 import graph.Graph;
@@ -78,6 +75,9 @@ public class DatabaseClient {
         String            problem_str  = problem_list.get(0).get("n.problems").asString();
         JsonObject        problems     = JsonParser.parseString(problem_str).getAsJsonObject();
 
+        Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        System.out.println("--> NODE PROBLEM INFO: " + gson.toJson(problems));
+
         // --> 2. If problem info not found, index empty problem info
         if(!problems.has(this.problem)){
             JsonArray elements = new JsonArray();
@@ -86,7 +86,8 @@ public class DatabaseClient {
         }
 
         // --> 3. Else, return current problem info
-        return problems.getAsJsonArray("elements");
+        return problems.getAsJsonArray(this.problem);
+        //return problems.getAsJsonArray("elements");
     }
 
 
@@ -449,6 +450,70 @@ public class DatabaseClient {
 //    |  __|/ _ \ | '__|| '_ ` _ \ | | | || | / _` || __|| | / _ \ | '_ \ / __|
 //    | |  | (_) || |   | | | | | || |_| || || (_| || |_ | || (_) || | | |\__ \
 //    |_|   \___/ |_|   |_| |_| |_| \__,_||_| \__,_| \__||_| \___/ |_| |_||___/
+
+
+    public void indexCameoFormulation(JsonObject adg_specs){
+        try (Session session1 = this.driver.session()){
+            JsonObject graph_object = adg_specs.getAsJsonObject("graph");
+            JsonObject root_object = adg_specs.getAsJsonObject("root");
+
+            // --> 1. Get root parameters
+            String root_parameters = this.gson.toJson(root_object);
+
+
+            // --> 2. Index nodes
+            this.indexNodes(session1, graph_object, root_parameters);
+
+
+            // --> 3. Index edges
+            this.indexEdges(session1, graph_object);
+        }
+        catch (Exception ex){
+            ex.printStackTrace();
+        }
+    }
+
+    private void indexNodes(Session session1, JsonObject graph_object, String root_parameters) throws Exception{
+
+        // --> 1. Create root node
+        session1.writeTransaction( tx -> addGenericRoot(tx, root_parameters));
+
+        // --> 2. Create decision nodes
+        JsonArray decisions = graph_object.getAsJsonArray("decisions");
+        for(JsonElement element: decisions){
+            JsonObject decision = element.getAsJsonObject();
+            String dname = decision.get("name").getAsString().replace("\"", "");
+            String dtype = decision.get("type").getAsString().replace("\"", "");
+
+            session1.writeTransaction( tx -> addGenericDecision(tx, dtype, dname));
+        }
+
+        // --> 3. Create final node
+        session1.writeTransaction( tx -> addGenericFinal(tx, this.formulation));
+    }
+
+    private void indexEdges(Session session1, JsonObject graph_object) throws Exception{
+
+        JsonArray edges = graph_object.getAsJsonArray("edges");
+        for(JsonElement element: edges){
+            JsonObject edge = element.getAsJsonObject();
+            String eparent = edge.get("parent").getAsString().replace("\"", "");
+            String echild = edge.get("child").getAsString().replace("\"", "");
+            String etype = edge.get("type").getAsString().replace("\"", "");
+            session1.writeTransaction(
+                    tx -> addGenericDependency(tx,
+                            eparent,
+                            echild,
+                            etype
+                    )
+            );
+        }
+
+
+    }
+
+
+
 
 
     /*

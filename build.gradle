@@ -1,14 +1,9 @@
 plugins {
-    id 'java'
-    id 'application'
+    id 'java-library'
 }
-
-group 'org.example'
-version '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
-    mavenLocal()
 }
 
 dependencies {
@@ -37,8 +32,13 @@ dependencies {
     compile group: 'org.ejml', name: 'ejml-all', version: '0.40'
 }
 
+jar {
+    zip64=true
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    baseName = "decisions"
 
-
-application {
-    mainClassName = 'app.AppProd'
+    // --> Destination dir
+    // destinationDirectory.set(file("/Applications/Cameo Systems Modeler Demo/plugins/adg"))
+    // destinationDirectory.set(file("/Users/gapaza/repos/seakers/adgplugin/adg"))
+    destinationDirectory.set(file("C:\\Users\\apaza\\repos\\seakers\\adgplugin\\adg"))
 }

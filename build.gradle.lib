@@ -1,0 +1,44 @@
+plugins {
+    id 'java-library'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+
+
+    // AWS
+    implementation platform('software.amazon.awssdk:bom:2.13.13')
+    implementation 'software.amazon.awssdk:sqs'
+    implementation 'software.amazon.awssdk:regions'
+    implementation 'software.amazon.awssdk:auth'
+
+    // Neo4j
+    compile'org.neo4j.driver:neo4j-java-driver:4.1.1'
+
+    // Gson
+    implementation 'com.google.code.gson:gson:2.8.6'
+
+    // MOEA
+    compile 'org.moeaframework:moeaframework:2.12'
+
+    // CSV
+    compile 'com.opencsv:opencsv:5.2'
+
+    // MATRIX OPERATIONS
+    compile group: 'org.ejml', name: 'ejml-all', version: '0.40'
+}
+
+jar {
+    zip64=true
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    baseName = "decisions"
+
+    // --> Destination dir
+    // destinationDirectory.set(file("/Applications/Cameo Systems Modeler Demo/plugins/adg"))
+    // destinationDirectory.set(file("/Users/gapaza/repos/seakers/adgplugin/adg"))
+    destinationDirectory.set(file("C:\\Users\\apaza\\repos\\seakers\\adgplugin\\adg"))
+}
